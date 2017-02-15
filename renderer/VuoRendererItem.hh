@@ -2,7 +2,7 @@
  * @file
  * VuoRendererItem interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -25,13 +25,16 @@ public:
 		activityInProgress = 0
 	};
 
+	static void setSnapToGrid(bool snap);
 	static void setDrawBoundingRects(bool drawBoundingRects);
 	static void drawRect(QPainter *painter, QRectF rect);
+	static bool getSnapToGrid();
 
 	VuoRendererItem();
 
 private:
 	static bool drawBoundingRects;
+	static bool snapToGrid;
 
 protected:
 	void drawBoundingRect(QPainter *painter);

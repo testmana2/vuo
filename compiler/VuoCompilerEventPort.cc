@@ -2,14 +2,21 @@
  * @file
  * VuoCompilerEventPort implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
 
+#include "VuoCompilerCodeGenUtilities.hh"
+#include "VuoCompilerConstantStringCache.hh"
+#include "VuoCompilerData.hh"
+#include "VuoCompilerDataClass.hh"
 #include "VuoCompilerEventPort.hh"
-
+#include "VuoCompilerEventPortClass.hh"
+#include "VuoCompilerInputData.hh"
+#include "VuoCompilerType.hh"
 #include "VuoPort.hh"
+#include "VuoType.hh"
 
 /**
  * Creates a passive (non-trigger) port from the specified @c portClass.
@@ -24,65 +31,89 @@ VuoCompilerEventPort::VuoCompilerEventPort(VuoPort * basePort)
 }
 
 /**
- * Generates code to allocate this port.
- */
-void VuoCompilerEventPort::generateAllocation(Module *module, string nodeInstanceIdentifier)
-{
-	VuoCompilerPort::generateAllocation(module, nodeInstanceIdentifier);
-
-	if (data)
-		data->generateAllocation(module, nodeInstanceIdentifier);
-}
-
-/**
- * Generates code to set the port's value to @c value.
- */
-StoreInst * VuoCompilerEventPort::generateStore(Value *value, BasicBlock *block)
-{
-	// Convert value to match variable's bit width.
-	unsigned valueBitWidth = ((IntegerType *)value->getType())->getBitWidth();
-	unsigned variableBitWidth = ((IntegerType *)((PointerType *)variable->getType())->getElementType())->getBitWidth();
-	if (valueBitWidth > variableBitWidth)
-		value = new TruncInst(value, IntegerType::get(block->getContext(), variableBitWidth), "", block);
-	else if (valueBitWidth < variableBitWidth)
-		value = new ZExtInst(value, IntegerType::get(block->getContext(), variableBitWidth), "", block);
-
-	return VuoCompilerPort::generateStore(value, block);
-}
-
-/**
- * Generates code to set the port's value to bool @c value.
- */
-StoreInst * VuoCompilerEventPort::generateStore(bool value, BasicBlock *block)
-{
-	Constant *valueConstant = getBoolConstant(value);
-	return VuoCompilerPort::generateStore(valueConstant, block);
-}
-
-/**
- * Returns constant with value @c value.
- */
-Constant * VuoCompilerEventPort::getBoolConstant(bool value)
-{
-	return ConstantInt::get(getBase()->getClass()->getCompiler()->getType(), value ? 1 : 0);
-}
-
-/**
- * Distinguishes the variable for the event from the variable for the data in data-and-event ports.
- */
-string VuoCompilerEventPort::getVariableBaseName(void)
-{
-	return VuoCompilerPort::getVariableBaseName() + "_event";
-}
-
-/**
- * Returns a unique, consistent identifier for this port.
+ * Generates code to create a heap-allocated PortContext.
  *
- * Assumes @c generateAllocation has been called.
+ * @return A value of type `PortContext *`.
  */
-string VuoCompilerEventPort::getIdentifier(void)
+Value * VuoCompilerEventPort::generateCreatePortContext(Module *module, BasicBlock *block)
 {
-	return getVariable()->getName();
+	VuoCompilerData *data = getData();
+	VuoCompilerType *dataType = (data ? getDataVuoType()->getCompiler() : NULL);
+	return VuoCompilerCodeGenUtilities::generateCreatePortContext(module, block, dataType ? dataType->getType() : NULL, false, "");
+}
+
+/**
+ * Generates code to get the current event value for this port.
+ *
+ * @return A value of type `i1` (1-bit integer).
+ */
+Value * VuoCompilerEventPort::generateLoadEvent(Module *module, BasicBlock *block, Value *nodeContextValue, Value *portContextValue)
+{
+	if (! portContextValue)
+		portContextValue = generateGetPortContext(module, block, nodeContextValue);
+	Value *eventValue = VuoCompilerCodeGenUtilities::generateGetPortContextEvent(module, block, portContextValue);
+	return new TruncInst(eventValue, IntegerType::get(block->getContext(), 1), "", block);
+}
+
+/**
+ * Generates code to update the event value for this port.
+ */
+void VuoCompilerEventPort::generateStoreEvent(Module *module, BasicBlock *block, Value *nodeContextValue, Value *eventValue, Value *portContextValue)
+{
+	unsigned valueBitWidth = ((IntegerType *)eventValue->getType())->getBitWidth();
+	unsigned variableBitWidth = 64;
+	if (valueBitWidth < variableBitWidth)
+		eventValue = new ZExtInst(eventValue, IntegerType::get(block->getContext(), variableBitWidth), "", block);
+
+	if (! portContextValue)
+		portContextValue = generateGetPortContext(module, block, nodeContextValue);
+	VuoCompilerCodeGenUtilities::generateSetPortContextEvent(module, block, portContextValue, eventValue);
+}
+
+/**
+ * Generates code to update the event value for this port.
+ */
+void VuoCompilerEventPort::generateStoreEvent(Module *module, BasicBlock *block, Value *nodeContextValue, bool event, Value *portContextValue)
+{
+	if (! portContextValue)
+		portContextValue = generateGetPortContext(module, block, nodeContextValue);
+	Value *eventValue = ConstantInt::get(IntegerType::get(module->getContext(), 64), event ? 1 : 0);
+	VuoCompilerCodeGenUtilities::generateSetPortContextEvent(module, block, portContextValue, eventValue);
+}
+
+/**
+ * Generates code to get the current data value for this port.
+ */
+Value * VuoCompilerEventPort::generateLoadData(Module *module, BasicBlock *block, Value *nodeContextValue, Value *portContextValue)
+{
+	if (! portContextValue)
+		portContextValue = generateGetPortContext(module, block, nodeContextValue);
+	return VuoCompilerCodeGenUtilities::generateGetPortContextData(module, block, portContextValue, getDataType()->getType());
+}
+
+/**
+ * Generates code to update the data value for this port.
+ */
+void VuoCompilerEventPort::generateStoreData(Module *module, BasicBlock *block, Value *nodeContextValue, Value *dataValue)
+{
+	Value *portContextValue = generateGetPortContext(module, block, nodeContextValue);
+	VuoCompilerCodeGenUtilities::generateSetPortContextData(module, block, portContextValue, dataValue);
+}
+
+/**
+ * Generates code to update the data value for this port, handling the memory management for replacing the old data value.
+ */
+void VuoCompilerEventPort::generateReplaceData(Module *module, BasicBlock *block, Value *nodeContextValue, Value *dataValue, Value *portContextValue)
+{
+	if (! portContextValue)
+		portContextValue = generateGetPortContext(module, block, nodeContextValue);
+
+	Value *oldDataValue = VuoCompilerCodeGenUtilities::generateGetPortContextData(module, block, portContextValue, getDataType()->getType());
+	VuoCompilerCodeGenUtilities::generateSetPortContextData(module, block, portContextValue, dataValue);
+
+	VuoCompilerType *type = getDataType();
+	type->generateRetainCall(module, block, dataValue);
+	type->generateReleaseCall(module, block, oldDataValue);
 }
 
 /**

@@ -3,6 +3,7 @@ MODULE_INCLUDEPATH = \
 	$${ROOT}/library \
 	$${ROOT}/node \
 	$${ROOT}/node/vuo.font \
+	$${ROOT}/node/vuo.ui \
 	$${ROOT}/type \
 	$${ROOT}/type/list \
 	$${ROOT}/runtime
@@ -41,7 +42,7 @@ QMAKE_EXTRA_COMPILERS += type
 
 typeObjects.input = TYPE_BITCODE
 typeObjects.output = ${QMAKE_FILE_IN_BASE}.o
-typeObjects.commands = $$QMAKE_CC -Oz -c -o ${QMAKE_FILE_OUT} ${QMAKE_FILE_IN}
+typeObjects.commands = $$QMAKE_CC $$FLAGS -Oz -c -o ${QMAKE_FILE_OUT} ${QMAKE_FILE_IN}
 typeObjects.variable_out = OBJECTS
 typeObjects.CONFIG = target_predeps
 QMAKE_EXTRA_COMPILERS += typeObjects
@@ -52,7 +53,7 @@ CLANG_NODE_LIBRARY_INCLUDEPATH = \
 	$$JSONC_ROOT/include \
 	$$NODE_LIBRARY_INCLUDEPATH
 CLANG_NODE_LIBRARY_FLAGS = \
-	-target x86_64-apple-macosx10.6.0 \
+	-target x86_64-apple-macosx10.7.0 \
 	-fblocks \
 	-fexceptions \
 	-emit-llvm \
@@ -62,14 +63,28 @@ CLANG_NODE_LIBRARY_FLAGS = \
 	$$join(DEFINES, " -D", "-D") \
 	$$VUO_VERSION_DEFINES \
 	-DVUO_COMPILER=1
+
+CLANG_NODE_LIBRARY_FLAGS += -isysroot $$QMAKE_MAC_SDK.macosx.path
+
+# Skip --coverage on Objective-C(++) files, since clang crashes.
+CLANG_NODE_LIBRARY_FLAGS_NON_OBJC = $$FLAGS
+# When using --coverage, skip debug symbols, since Vuo Compiler crashes.
+CLANG_NODE_LIBRARY_FLAGS_NON_OBJC -= -g
+
 node_library.input = NODE_LIBRARY_SOURCES
 node_library.depend_command = $$QMAKE_CC -nostdinc -MM -MF - -MG $$QMAKE_CFLAGS_X86_64 $${CLANG_NODE_LIBRARY_FLAGS} ${QMAKE_FILE_NAME} | sed \"s,^.*: ,,\"
 node_library.output = ${QMAKE_FILE_IN_BASE}.bc
 node_library.commands = \
-	@if [ "${QMAKE_FILE_EXT}" == ".c" -o "${QMAKE_FILE_EXT}" == ".m" ]; then \
+	@if [ "${QMAKE_FILE_EXT}" == ".c" ]; then \
+		echo $$QMAKE_CC $$CLANG_NODE_LIBRARY_FLAGS $$CLANG_NODE_LIBRARY_FLAGS_NON_OBJC -c ${QMAKE_FILE_IN} -o ${QMAKE_FILE_OUT} ; \
+		$$QMAKE_CC $$CLANG_NODE_LIBRARY_FLAGS $$CLANG_NODE_LIBRARY_FLAGS_NON_OBJC -c ${QMAKE_FILE_IN} -o ${QMAKE_FILE_OUT} ; \
+	elif [ "${QMAKE_FILE_EXT}" == ".m" ]; then \
 		echo $$QMAKE_CC $$CLANG_NODE_LIBRARY_FLAGS -c ${QMAKE_FILE_IN} -o ${QMAKE_FILE_OUT} ; \
 		$$QMAKE_CC $$CLANG_NODE_LIBRARY_FLAGS -c ${QMAKE_FILE_IN} -o ${QMAKE_FILE_OUT} ; \
-	elif [ "${QMAKE_FILE_EXT}" == ".cc" -o "${QMAKE_FILE_EXT}" == ".mm" ]; then \
+	elif [ "${QMAKE_FILE_EXT}" == ".cc" ]; then \
+		echo $$QMAKE_CXX $$CLANG_NODE_LIBRARY_FLAGS $$CLANG_NODE_LIBRARY_FLAGS_NON_OBJC -c ${QMAKE_FILE_IN} -o ${QMAKE_FILE_OUT} ; \
+		$$QMAKE_CXX $$CLANG_NODE_LIBRARY_FLAGS $$CLANG_NODE_LIBRARY_FLAGS_NON_OBJC -c ${QMAKE_FILE_IN} -o ${QMAKE_FILE_OUT} ; \
+	elif [ "${QMAKE_FILE_EXT}" == ".mm" ]; then \
 		echo $$QMAKE_CXX $$CLANG_NODE_LIBRARY_FLAGS -c ${QMAKE_FILE_IN} -o ${QMAKE_FILE_OUT} ; \
 		$$QMAKE_CXX $$CLANG_NODE_LIBRARY_FLAGS -c ${QMAKE_FILE_IN} -o ${QMAKE_FILE_OUT} ; \
 	else \
@@ -111,6 +126,7 @@ VuoNodeSet {
 	exists($$NODE_SET_DIR/examples/*.3ds) { NODE_SET_ZIP_CONTENTS += examples/*.3ds }
 	exists($$NODE_SET_DIR/examples/*.dae) { NODE_SET_ZIP_CONTENTS += examples/*.dae }
 	exists($$NODE_SET_DIR/examples/*.data){ NODE_SET_ZIP_CONTENTS += examples/*.data}
+	exists($$NODE_SET_DIR/examples/*.csv) { NODE_SET_ZIP_CONTENTS += examples/*.csv }
 
 	# Check for impending existence of premium nodes.
 	exists($$NODE_SET_DIR/premium) { NODE_SET_ZIP_CONTENTS += *.vuonode+ }
@@ -131,6 +147,7 @@ VuoNodeSet {
 
 # Enable Qt Creator to open and autocomplete 3rd-party headers
 INCLUDEPATH += \
+	$$MODULE_INCLUDEPATH \
 	$$NODE_INCLUDEPATH \
 	$$TYPE_INCLUDEPATH \
 	$$NODE_LIBRARY_INCLUDEPATH

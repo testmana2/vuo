@@ -2,7 +2,7 @@
  * @file
  * VuoFileUtilities interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -14,6 +14,10 @@
 #pragma clang diagnostic ignored "-Wunreachable-code"
 #include "miniz.h"
 #pragma clang diagnostic pop
+
+#import <string>
+#import <set>
+using namespace std;
 
 /**
  * Functions for dealing with files.
@@ -79,7 +83,14 @@ public:
 	static void writeRawDataToFile(const char *data, size_t numBytes, string file);
 	static void writeStringToFile(string s, string file);
 	static bool fileExists(string path);
+	static bool dirExists(string path);
+	static bool fileIsReadable(string path);
+	static bool fileContainsReadableData(string path);
 	static void createFile(string path);
+	static void deleteFile(string path);
+	static void moveFile(string fromPath, string toPath);
+	static void moveFileToTrash(string filePath);
+	static void copyFile(string fromPath, string toPath);
 	static unsigned long getFileLastModifiedInSeconds(string path);
 	static set<File *> findAllFilesInDirectory(string dirPath, set<string> archiveExtensions = set<string>(), bool shouldSearchRecursively = false);
 	static set<File *> findFilesInDirectory(string dirPath, set<string> extensions, set<string> archiveExtensions = set<string>());

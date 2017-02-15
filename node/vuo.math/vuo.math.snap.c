@@ -2,7 +2,7 @@
  * @file
  * vuo.math.snap node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -11,7 +11,7 @@
 
 VuoModuleMetadata({
 					 "title" : "Snap Value",
-					 "keywords" : [  "quantize", "grid", "approximate", "preset", "discrete", "integer", "nearby", "close" ],
+					 "keywords" : [  "quantize", "grid", "approximate", "preset", "discrete", "integer", "nearby", "close", "round" ],
 					 "version" : "1.0.0",
 					 "genericTypes" : {
 						 "VuoGenericType1" : {

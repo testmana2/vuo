@@ -2,7 +2,7 @@
  * @file
  * vuo.test.delay node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -28,4 +28,5 @@ void nodeEvent
 {
 	dispatch_semaphore_t temporaryDeadlock = dispatch_semaphore_create(0);
 	dispatch_semaphore_wait(temporaryDeadlock, dispatch_time(DISPATCH_TIME_NOW, seconds * NSEC_PER_SEC));
+	dispatch_release(temporaryDeadlock);
 }

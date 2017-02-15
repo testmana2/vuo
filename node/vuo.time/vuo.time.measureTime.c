@@ -2,7 +2,7 @@
  * @file
  * vuo.time.measureTime node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -15,7 +15,7 @@ VuoModuleMetadata({
 					  "keywords" : [ "animate", "frame", "stopwatch", "start", "pause", "elapsed", "count", "cue" ],
 					  "version" : "2.0.1",
 					  "node": {
-						  "exampleCompositions" : [ "ShowStopwatch.vuo", "RotateOnCue.vuo" ]
+						  "exampleCompositions" : [ "ShowStopwatch.vuo", "FlashOnMousePress.vuo", "RotateOnCue.vuo" ]
 					  },
 				  });
 

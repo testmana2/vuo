@@ -2,7 +2,7 @@
  * @file
  * VuoInputEditorMenuItem interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -14,7 +14,7 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdocumentation"
-#include <json/json.h>
+#include <json-c/json.h>
 #pragma clang diagnostic pop
 
 /**
@@ -26,12 +26,13 @@ public:
 	/**
 	 * Constructs a menu item with the given human-readable title, representing the given value.
 	 */
-	VuoInputEditorMenuItem(string title = "", json_object *value = NULL, const QIcon *icon = NULL)
+	VuoInputEditorMenuItem(string title = "", json_object *value = NULL, const QIcon *icon = NULL, bool isEnabled = true)
 	{
 		this->value = value;
 		this->title = title;
 		this->icon = icon;
 		this->isSeparator = false;
+		this->isEnabled = isEnabled;
 	}
 
 	/**
@@ -88,7 +89,8 @@ public:
 				QAction *action = new QAction(QString::fromStdString((*it)->title), menu);
 				if ((*it)->icon)
 					action->setIcon(*(*it)->icon);
-				action->setCheckable(true);
+				action->setEnabled((*it)->isEnabled);
+				action->setCheckable((*it)->isEnabled);
 				action->setData(QVariant::fromValue((void *)(*it)->value));
 				menu->addAction(action);
 				action->setActionGroup(actionGroup);
@@ -102,6 +104,7 @@ private:
 	const QIcon *icon;
 	vector<VuoInputEditorMenuItem *> childItems;
 	bool isSeparator;
+	bool isEnabled;
 };
 
 #endif // VUOINPUTEDITORMENUITEM_CC

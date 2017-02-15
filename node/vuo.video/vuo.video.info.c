@@ -2,13 +2,14 @@
  * @file
  * vuo.video.info node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
 
 #include "node.h"
-#include "VuoMovie.h"
+#include "VuoVideo.h"
+#include "VuoVideoOptimization.h"
 
 VuoModuleMetadata({
 					 "title" : "Get Movie Info",
@@ -22,9 +23,10 @@ VuoModuleMetadata({
 						  "quicktime", "qt", "aic", "prores",
 						  "video",
 					  ],
-					 "version" : "2.0.0",
+					 "version" : "2.0.2",
 					 "dependencies" : [
-						 "VuoMovie"
+						 "VuoVideo",
+						 "VuoUrl"
 					 ],
 					 "node": {
 						 "isInterface" : true,
@@ -39,9 +41,12 @@ void nodeEvent
 //		VuoOutputData(VuoDictionary_VuoText) metadata
 )
 {
-	double dur;
-	if( VuoMovie_getInfo(url, &dur) )
+	VuoVideo decoder = VuoVideo_make(url, VuoVideoOptimization_Auto);
+
+	if(decoder != NULL)
 	{
-		*duration = (VuoReal)dur;
+		VuoRetain(decoder);
+		*duration = VuoVideo_getDuration(decoder);
+		VuoRelease(decoder);
 	}
 }

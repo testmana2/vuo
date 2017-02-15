@@ -2,7 +2,7 @@
  * @file
  * VuoPoint3d implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -45,6 +45,14 @@ VuoModuleMetadata({
 VuoPoint3d VuoPoint3d_makeFromJson(json_object * js)
 {
 	VuoPoint3d point = {0,0,0};
+
+	if (json_object_get_type(js) == json_type_string)
+	{
+		const char *s = json_object_get_string(js);
+		sscanf(s, "%20g, %20g, %20g", &point.x, &point.y, &point.z);
+		return point;
+	}
+
 	json_object *o = NULL;
 
 	if (json_object_object_get_ex(js, "x", &o))
@@ -86,6 +94,16 @@ json_object * VuoPoint3d_getJson(const VuoPoint3d value)
 char * VuoPoint3d_getSummary(const VuoPoint3d value)
 {
 	return VuoText_format("%g, %g, %g", value.x, value.y, value.z);
+}
+
+/**
+ * Returns true if the two points are equal (within tolerance).
+ */
+bool VuoPoint3d_areEqual(const VuoPoint3d value1, const VuoPoint3d value2)
+{
+	return VuoReal_areEqual(value1.x, value2.x)
+		&& VuoReal_areEqual(value1.y, value2.y)
+		&& VuoReal_areEqual(value1.z, value2.z);
 }
 
 /**

@@ -2,7 +2,7 @@
  * @file
  * VuoPortClass implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -19,6 +19,7 @@ VuoPortClass::VuoPortClass(string name, PortType portType)
 	this->portType = portType;
 	this->eventBlocking = EventBlocking_None;
 	this->defaultEventThrottling = EventThrottling_Enqueue;
+	this->portAction = false;
 }
 
 /**
@@ -59,6 +60,23 @@ VuoPortClass::EventBlocking VuoPortClass::getEventBlocking(void)
 void VuoPortClass::setEventBlocking(VuoPortClass::EventBlocking eventBlocking)
 {
 	this->eventBlocking = eventBlocking;
+}
+
+/**
+ * Returns true if this port has a port action (causes something special to happen when it receives an event).
+ * Only applies to input ports.
+ */
+bool VuoPortClass::hasPortAction(void)
+{
+	return portAction;
+}
+
+/**
+ * Sets whether this port has a port action. Only applies to input ports.
+ */
+void VuoPortClass::setPortAction(bool portAction)
+{
+	this->portAction = portAction;
 }
 
 /**

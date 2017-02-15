@@ -2,7 +2,7 @@
  * @file
  * VuoFileType C type definition.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -34,7 +34,8 @@ typedef enum
 	VuoFileType_Mesh,
 	VuoFileType_Movie,
 	VuoFileType_Scene,
-	VuoFileType_Folder
+	VuoFileType_Folder,
+	VuoFileType_Feed,
 } VuoFileType;
 
 VuoFileType VuoFileType_makeFromJson(struct json_object * js);

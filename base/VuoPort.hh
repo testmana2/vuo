@@ -2,7 +2,7 @@
  * @file
  * VuoPort interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -30,10 +30,11 @@ class VuoPort : public VuoBase<VuoCompilerNodeArgument,VuoRendererPort>
 {
 public:
 	VuoPort(VuoPortClass *portClass);
+	virtual ~VuoPort(void);  ///< to make this class dynamic_cast-able
 
 	VuoPortClass * getClass(void);
 
-	vector<VuoCable *> getConnectedCables(bool includePublishedCables);
+	vector<VuoCable *> getConnectedCables(bool includePublishedCables=true);
 	void addConnectedCable(VuoCable *cable);
 	void removeConnectedCable(VuoCable *cable);
 	VuoCable * getCableConnecting(VuoPort *otherPort);

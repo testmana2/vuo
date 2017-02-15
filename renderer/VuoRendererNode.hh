@@ -2,7 +2,7 @@
  * @file
  * VuoRendererNode interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -19,7 +19,7 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdocumentation"
-	#include "json/json.h"
+	#include <json-c/json.h>
 #pragma clang diagnostic pop
 
 class VuoCompilerNode;
@@ -62,10 +62,10 @@ public:
 	static QPair<QPainterPath, QPainterPath> getNodeFrames(QRectF nodeInnerFrameRect,
 														   QPainterPath portsPath,
 														   QPainterPath portsInsetPath,
-														   QPainterPath statefulIndicatorOutline,
-														   bool isSubcomposition);
+														   QPainterPath statefulIndicatorOutline);
 	static QPainterPath getStatefulIndicatorOutline(QRectF nodeInnerFrameRect, bool isStateful);
-	static QPainterPath getAntennaPath(QRectF nodeInnerFrameRect, bool isInterface);
+	static QPainterPath getAntennaPath(QRectF nodeInnerFrameRect, bool isInterface, bool isSubcomposition);
+	static QPainterPath getSubcompositionIndicatorPath(QRectF nodeInnerFrameRect, bool isSubcomposition);
 	static QPair<QPainterPath, QPainterPath> getPortPaths(VuoRendererPortList *inputPorts, VuoRendererPortList *outputPorts);
 
 	void setMissingImplementation(bool missingImplementation);
@@ -130,15 +130,19 @@ private:
 	VuoRendererNode *proxyNode; ///< The optional node that handles the rendering for this node.
 
 	// Drawing configuration
+	static const qreal outerBorderWidth;
 	static const qreal subcompositionBulge;
 	static const qreal nodeClassHeight;
 	static const qreal antennaIconWidth;
+	static const qreal iconRightOffset;
+	static const qreal intraIconMargin;
 
 	QRectF frameRect;
 	QPair<QPainterPath, QPainterPath> nodeFrames; // (nodeOuterFrame, nodeInnerFrame)
 	QPair<QPainterPath, QPainterPath> portPaths; // (ports, portsInset)
 	QPainterPath statefulIndicatorOutline;
 	QPainterPath antennaPath;
+	QPainterPath subcompositionIndicatorPath;
 
 	QRectF nodeTitleBoundingRect;
 

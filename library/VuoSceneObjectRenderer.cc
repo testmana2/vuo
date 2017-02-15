@@ -2,18 +2,22 @@
  * @file
  * VuoSceneObjectRenderer implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
 
 #include "VuoSceneObjectRenderer.h"
+#include "VuoSceneRenderer.h"
 #include "VuoGlContext.h"
 #include "VuoGlPool.h"
 
 #include <stdlib.h>
+#include <list>
+#include <string>
 
 #include <IOSurface/IOSurface.h>
+#include <CoreServices/CoreServices.h>
 
 #include <OpenGL/OpenGL.h>
 #include <OpenGL/CGLMacro.h>
@@ -32,6 +36,7 @@ VuoModuleMetadata({
 					 "title" : "VuoSceneObjectRenderer",
 					 "dependencies" : [
 						 "VuoSceneObject",
+						 "VuoSceneRenderer",
 						 "VuoShader",
 						 "VuoGlContext",
 						 "VuoGlPool",
@@ -53,6 +58,7 @@ typedef struct
 	GLint textureCoordinate;
 
 	unsigned int expectedOutputPrimitiveCount;
+	bool mayChangeOutputPrimitiveCount;
 } VuoSceneObjectRenderer_Attributes;
 
 /**
@@ -87,7 +93,7 @@ VuoSceneObjectRenderer VuoSceneObjectRenderer_make(VuoGlContext glContext, VuoSh
 {
 	if (!VuoShader_isTransformFeedback(shader))
 	{
-		VLog("Error '%s' is not a transform feedback shader.", shader->name);
+		VUserLog("Error '%s' is not a transform feedback shader.", shader->name);
 		return NULL;
 	}
 
@@ -102,14 +108,19 @@ VuoSceneObjectRenderer VuoSceneObjectRenderer_make(VuoGlContext glContext, VuoSh
 	bool haveTriangles = VuoShader_getAttributeLocations(shader, VuoMesh_IndividualTriangles, cgl_ctx, &sceneObjectRenderer->triangleAttributes.position, &sceneObjectRenderer->triangleAttributes.normal, &sceneObjectRenderer->triangleAttributes.tangent, &sceneObjectRenderer->triangleAttributes.bitangent, &sceneObjectRenderer->triangleAttributes.textureCoordinate);
 	if (!havePoints || !haveLines || !haveTriangles)
 	{
-		VLog("Error: '%s' is missing programs for: %s %s %s", shader->name, havePoints? "" : "points", haveLines? "" : "lines", haveTriangles? "" : "triangles");
+		VUserLog("Error: '%s' is missing programs for: %s %s %s", shader->name, havePoints? "" : "points", haveLines? "" : "lines", haveTriangles? "" : "triangles");
 		free(sceneObjectRenderer);
 		return NULL;
 	}
 
-	sceneObjectRenderer->pointAttributes.expectedOutputPrimitiveCount    = VuoShader_getExpectedOutputPrimitiveCount(shader, VuoMesh_Points);
-	sceneObjectRenderer->lineAttributes.expectedOutputPrimitiveCount     = VuoShader_getExpectedOutputPrimitiveCount(shader, VuoMesh_IndividualLines);
-	sceneObjectRenderer->triangleAttributes.expectedOutputPrimitiveCount = VuoShader_getExpectedOutputPrimitiveCount(shader, VuoMesh_IndividualTriangles);
+	sceneObjectRenderer->pointAttributes.expectedOutputPrimitiveCount     = VuoShader_getExpectedOutputPrimitiveCount (shader, VuoMesh_Points);
+	sceneObjectRenderer->pointAttributes.mayChangeOutputPrimitiveCount    = VuoShader_getMayChangeOutputPrimitiveCount(shader, VuoMesh_Points);
+
+	sceneObjectRenderer->lineAttributes.expectedOutputPrimitiveCount      = VuoShader_getExpectedOutputPrimitiveCount (shader, VuoMesh_IndividualLines);
+	sceneObjectRenderer->lineAttributes.mayChangeOutputPrimitiveCount     = VuoShader_getMayChangeOutputPrimitiveCount(shader, VuoMesh_IndividualLines);
+
+	sceneObjectRenderer->triangleAttributes.expectedOutputPrimitiveCount  = VuoShader_getExpectedOutputPrimitiveCount (shader, VuoMesh_IndividualTriangles);
+	sceneObjectRenderer->triangleAttributes.mayChangeOutputPrimitiveCount = VuoShader_getMayChangeOutputPrimitiveCount(shader, VuoMesh_IndividualTriangles);
 
 	VuoRegister(sceneObjectRenderer, VuoSceneObjectRenderer_destroy);
 
@@ -120,8 +131,8 @@ VuoSceneObjectRenderer VuoSceneObjectRenderer_make(VuoGlContext glContext, VuoSh
 	glBindVertexArray(sceneObjectRenderer->vertexArray);
 
 	// http://stackoverflow.com/questions/24112671/transform-feedback-without-a-framebuffer
-	sceneObjectRenderer->shamTexture = VuoGlTexturePool_use(cgl_ctx, GL_RGBA, 1, 1, GL_RGBA);
-	VuoGlTexture_retain(sceneObjectRenderer->shamTexture);
+	sceneObjectRenderer->shamTexture = VuoGlTexturePool_use(cgl_ctx, GL_RGBA, 1, 1, GL_BGRA);
+	VuoGlTexture_retain(sceneObjectRenderer->shamTexture, NULL, NULL);
 	glGenFramebuffers(1, &sceneObjectRenderer->shamFramebuffer);
 	glBindFramebuffer(GL_FRAMEBUFFER, sceneObjectRenderer->shamFramebuffer);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, sceneObjectRenderer->shamTexture, 0);
@@ -137,10 +148,12 @@ VuoSceneObjectRenderer VuoSceneObjectRenderer_make(VuoGlContext glContext, VuoSh
  * Helper for @ref VuoSceneObjectRenderer_draw.
  * Applies a shader to a single @c sceneObject's VuoMesh (ignoring its childObjects).
  */
-void VuoSceneObjectRenderer_drawSingle(CGLContextObj cgl_ctx, struct VuoSceneObjectRendererInternal *sceneObjectRenderer, VuoSceneObject *sceneObject, float modelviewMatrix[16])
+static void VuoSceneObjectRenderer_drawSingle(CGLContextObj cgl_ctx, struct VuoSceneObjectRendererInternal *sceneObjectRenderer, VuoSceneObject *sceneObject, float modelviewMatrix[16])
 {
 	if (!sceneObject->mesh)
 		return;
+
+	dispatch_semaphore_wait(VuoSceneRenderer_vertexArraySemaphore, DISPATCH_TIME_FOREVER);
 
 	VuoRetain(sceneObject->mesh);
 
@@ -151,30 +164,24 @@ void VuoSceneObjectRenderer_drawSingle(CGLContextObj cgl_ctx, struct VuoSceneObj
 		VuoSubmesh submesh = sceneObject->mesh->submeshes[i];
 
 
-		VuoMesh_ElementAssemblyMethod outputPrimitiveMode;
+		VuoMesh_ElementAssemblyMethod outputPrimitiveMode = VuoMesh_getExpandedPrimitiveMode(submesh.elementAssemblyMethod);
 		GLuint outputPrimitiveGlMode;
 		VuoSceneObjectRenderer_Attributes attributes;
 		int primitiveVertexMultiplier;
-		if (submesh.elementAssemblyMethod == VuoMesh_IndividualTriangles
-		 || submesh.elementAssemblyMethod == VuoMesh_TriangleFan
-		 || submesh.elementAssemblyMethod == VuoMesh_TriangleStrip)
+		if (outputPrimitiveMode == VuoMesh_IndividualTriangles)
 		{
-			outputPrimitiveMode = VuoMesh_IndividualTriangles;
 			outputPrimitiveGlMode = GL_TRIANGLES;
 			attributes = sceneObjectRenderer->triangleAttributes;
 			primitiveVertexMultiplier = 3;
 		}
-		else if (submesh.elementAssemblyMethod == VuoMesh_IndividualLines
-			  || submesh.elementAssemblyMethod == VuoMesh_LineStrip)
+		else if (outputPrimitiveMode == VuoMesh_IndividualLines)
 		{
-			outputPrimitiveMode = VuoMesh_IndividualLines;
 			outputPrimitiveGlMode = GL_LINES;
 			attributes = sceneObjectRenderer->lineAttributes;
 			primitiveVertexMultiplier = 2;
 		}
 		else // if (submesh.elementAssemblyMethod == VuoMesh_Points)
 		{
-			outputPrimitiveMode = VuoMesh_Points;
 			outputPrimitiveGlMode = GL_POINTS;
 			attributes = sceneObjectRenderer->pointAttributes;
 			primitiveVertexMultiplier = 1;
@@ -196,15 +203,20 @@ void VuoSceneObjectRenderer_drawSingle(CGLContextObj cgl_ctx, struct VuoSceneObj
 			++bufferCount;
 
 
-		GLuint programName = VuoShader_activate(sceneObjectRenderer->shader, submesh.elementAssemblyMethod, sceneObjectRenderer->glContext);
+		VuoGlProgram program;
+		if (!VuoShader_activate(sceneObjectRenderer->shader, submesh.elementAssemblyMethod, sceneObjectRenderer->glContext, &program))
+		{
+			VUserLog("Shader activation failed.");
+			return;
+		}
 
 
-		GLint modelviewMatrixUniform = glGetUniformLocation(programName, "modelviewMatrix");
+		GLint modelviewMatrixUniform = VuoGlProgram_getUniformLocation(program, "modelviewMatrix");
 		if (modelviewMatrixUniform != -1)
 			glUniformMatrix4fv(modelviewMatrixUniform, 1, GL_FALSE, modelviewMatrix);
 
 
-		GLint modelviewMatrixInverseUniform = glGetUniformLocation(programName, "modelviewMatrixInverse");
+		GLint modelviewMatrixInverseUniform = VuoGlProgram_getUniformLocation(program, "modelviewMatrixInverse");
 		if (modelviewMatrixInverseUniform != -1)
 		{
 			float modelviewMatrixInverse[16];
@@ -238,7 +250,8 @@ void VuoSceneObjectRenderer_drawSingle(CGLContextObj cgl_ctx, struct VuoSceneObj
 
 
 		// Attach the input elementBuffer for rendering.
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, submesh.glUpload.elementBuffer);
+		if (submesh.glUpload.elementBuffer)
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, submesh.glUpload.elementBuffer);
 
 
 		// Create and attach the output combinedBuffer.
@@ -255,31 +268,94 @@ void VuoSceneObjectRenderer_drawSingle(CGLContextObj cgl_ctx, struct VuoSceneObj
 
 		// Execute the filter.
 		GLenum mode = VuoSubmesh_getGlMode(submesh);
-		glBeginQuery(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN_EXT, sceneObjectRenderer->query);
+		if (attributes.mayChangeOutputPrimitiveCount)
+			glBeginQuery(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN_EXT, sceneObjectRenderer->query);
 		glBeginTransformFeedbackEXT(outputPrimitiveGlMode);
+
+#ifdef PROFILE
+	GLuint timeElapsedQuery;
+	double timeStart = 0;
+	SInt32 macMinorVersion;
+	Gestalt(gestaltSystemVersionMinor, &macMinorVersion);
+	if (macMinorVersion < 9)
+	{
+		// Prior to OS X v10.9, glGetQueryObjectuiv() isn't likely to work.
+		// (On NVIDIA GeForce 9400M on OS X v10.8, it hangs for 6 seconds then returns bogus data.)
+		// https://www.mail-archive.com/mac-opengl@lists.apple.com/msg00003.html
+		// https://b33p.net/kosada/node/10677
+		glFinish();
+		timeStart = VuoLogGetTime();
+	}
+	else
+	{
+		glGenQueries(1, &timeElapsedQuery);
+		glBeginQuery(GL_TIME_ELAPSED_EXT, timeElapsedQuery);
+	}
+#endif
 
 		if (submesh.elementCount)
 			glDrawElements(mode, submesh.elementCount, GL_UNSIGNED_INT, (void*)0);
 		else
 			glDrawArrays(mode, 0, submesh.vertexCount);
 
+#ifdef PROFILE
+	double seconds;
+	if (macMinorVersion < 9)
+	{
+		glFinish();
+		seconds = VuoLogGetTime() - timeStart;
+	}
+	else
+	{
+		glEndQuery(GL_TIME_ELAPSED_EXT);
+		GLuint nanoseconds;
+		glGetQueryObjectuiv(timeElapsedQuery, GL_QUERY_RESULT, &nanoseconds);
+		seconds = ((double)nanoseconds) / NSEC_PER_SEC;
+		glDeleteQueries(1, &timeElapsedQuery);
+	}
+
+	double objectPercent = seconds / (1./60.) * 100.;
+	VLog("%6.2f %% of 60 Hz frame	%s (%s)", objectPercent, sceneObject->name, sceneObjectRenderer->shader->name);
+#endif
+
+
 		glEndTransformFeedbackEXT();
-		glEndQuery(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN_EXT);
+		if (attributes.mayChangeOutputPrimitiveCount)
+			glEndQuery(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN_EXT);
 
 		glBindBuffer(GL_TRANSFORM_FEEDBACK_BUFFER_EXT, 0);
+
+		if (submesh.glUpload.elementBuffer)
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+		if (submesh.glUpload.textureCoordinateOffset && attributes.textureCoordinate >= 0)
+			glDisableVertexAttribArray(attributes.textureCoordinate);
+		if (submesh.glUpload.bitangentOffset && attributes.bitangent >= 0)
+			glDisableVertexAttribArray(attributes.bitangent);
+		if (submesh.glUpload.tangentOffset && attributes.tangent >= 0)
+			glDisableVertexAttribArray(attributes.tangent);
+		if (submesh.glUpload.normalOffset && attributes.normal >= 0)
+			glDisableVertexAttribArray(attributes.normal);
+		glDisableVertexAttribArray(attributes.position);
 
 		VuoShader_deactivate(sceneObjectRenderer->shader, submesh.elementAssemblyMethod, sceneObjectRenderer->glContext);
 
 
-		GLuint actualPrimitives = 0;
-		glGetQueryObjectuiv(sceneObjectRenderer->query, GL_QUERY_RESULT, &actualPrimitives);
+		GLuint actualVertexCount = 0;
+		if (attributes.mayChangeOutputPrimitiveCount)
+		{
+			glGetQueryObjectuiv(sceneObjectRenderer->query, GL_QUERY_RESULT, &actualVertexCount);
+			actualVertexCount *= primitiveVertexMultiplier;
+		}
+		else
+			actualVertexCount = outputVertexCount;
 
 
 		// Print out the result of the filter, for debugging.
 //		glFlush();
-//		GLfloat feedback[actualPrimitives*primitiveVertexMultiplier*4*5];
+//		GLfloat feedback[actualVertexCount*4*5];
 //		glGetBufferSubData(GL_TRANSFORM_FEEDBACK_BUFFER_EXT, 0, sizeof(feedback), feedback);
-//		for (int vertex = 0; vertex < actualPrimitives*primitiveVertexMultiplier; vertex++)
+//		for (int vertex = 0; vertex < actualVertexCount; vertex++)
 //		{
 //			for (int coordinate = 0; coordinate < 3; ++coordinate)
 //				VLog("\t%f", feedback[vertex*4*bufferCount + coordinate]);
@@ -288,7 +364,7 @@ void VuoSceneObjectRenderer_drawSingle(CGLContextObj cgl_ctx, struct VuoSceneObj
 
 
 		newMesh->submeshes[i] = VuoSubmesh_makeGl(
-					actualPrimitives*primitiveVertexMultiplier, combinedOutputBuffer, combinedOutputBufferSize,
+					actualVertexCount, combinedOutputBuffer, combinedOutputBufferSize,
 					(void*)(sizeof(VuoPoint4d)*1),
 					(void*)(sizeof(VuoPoint4d)*2),
 					(void*)(sizeof(VuoPoint4d)*3),
@@ -302,6 +378,8 @@ void VuoSceneObjectRenderer_drawSingle(CGLContextObj cgl_ctx, struct VuoSceneObj
 //	VuoRetain(newMesh);
 	VuoRelease(sceneObject->mesh);
 	sceneObject->mesh = newMesh;
+
+	dispatch_semaphore_signal(VuoSceneRenderer_vertexArraySemaphore);
 }
 
 /**
@@ -328,6 +406,10 @@ VuoSceneObject VuoSceneObjectRenderer_draw(VuoSceneObjectRenderer sor, VuoSceneO
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+	// Ensure commands are submitted before we try to use the generated object on another context.
+	// https://b33p.net/kosada/node/10467
+	glFlushRenderAPPLE();
+
 	return sceneObjectCopy;
 }
 
@@ -339,12 +421,15 @@ VuoSceneObject VuoSceneObjectRenderer_draw(VuoSceneObjectRenderer sor, VuoSceneO
 void VuoSceneObjectRenderer_destroy(VuoSceneObjectRenderer sor)
 {
 	struct VuoSceneObjectRendererInternal *sceneObjectRenderer = (struct VuoSceneObjectRendererInternal *)sor;
+
+	VuoShader_cleanupContext(sceneObjectRenderer->glContext);
+
 	CGLContextObj cgl_ctx = (CGLContextObj)sceneObjectRenderer->glContext;
 
 	VuoRelease(sceneObjectRenderer->shader);
 
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
-	VuoGlTexture_release(GL_RGBA, 1, 1, sceneObjectRenderer->shamTexture);
+	VuoGlTexture_release(GL_RGBA, 1, 1, sceneObjectRenderer->shamTexture, GL_TEXTURE_2D);
 //	glBindFramebuffer(GL_FRAMEBUFFER, 0);	// handled by glDeleteFramebuffers
 	glDeleteFramebuffers(1, &sceneObjectRenderer->shamFramebuffer);
 

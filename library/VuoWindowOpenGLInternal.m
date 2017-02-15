@@ -2,14 +2,15 @@
  * @file
  * VuoWindowOpenGLInternal implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
 
 #import "VuoWindowOpenGLInternal.h"
-#import "VuoWindowApplication.h"
+#import "VuoWindow.h"
 #import "VuoScreenCommon.h"
+#import "VuoCglPixelFormat.h"
 
 #include <Carbon/Carbon.h>
 #include <OpenGL/OpenGL.h>
@@ -22,10 +23,14 @@ VuoModuleMetadata({
 					 "title" : "VuoWindowOpenGLInternal",
 					 "dependencies" : [
 						 "AppKit.framework",
+						 "VuoCglPixelFormat",
 						 "VuoDisplayRefresh",
 						 "VuoGLContext",
 						 "VuoScreenCommon",
+						 "VuoWindow",
+						 "VuoWindowDrag",
 						 "VuoWindowProperty",
+						 "VuoWindowRecorder",
 						 "VuoWindowReference",
 						 "VuoList_VuoWindowProperty",
 						 "OpenGL.framework"
@@ -70,6 +75,8 @@ VuoModuleMetadata({
 @synthesize windowedGlContext;
 @synthesize drawQueue;
 @synthesize viewport;
+@synthesize reshapeNeeded;
+@synthesize skipDrawRect;
 
 /**
  * Creates an OpenGL view that calls the given callbacks for rendering.
@@ -78,6 +85,7 @@ VuoModuleMetadata({
  */
 - (id)initWithFrame:(NSRect)frame
 		   initCallback:(void (*)(VuoGlContext glContext, float backingScaleFactor, void *))_initCallback
+  updateBackingCallback:(void (*)(VuoGlContext glContext, void *, float backingScaleFactor))_updateBackingCallback
 		 resizeCallback:(void (*)(VuoGlContext glContext, void *, unsigned int width, unsigned int height))_resizeCallback
 		   drawCallback:(void (*)(VuoGlContext glContext, void *))_drawCallback
 			drawContext:(void *)_drawContext
@@ -85,23 +93,16 @@ VuoModuleMetadata({
 	if (self = [super initWithFrame:frame pixelFormat:[NSOpenGLView defaultPixelFormat]])
 	{
 		initCallback = _initCallback;
+		updateBackingCallback = _updateBackingCallback;
 		resizeCallback = _resizeCallback;
 		drawCallback = _drawCallback;
 		drawContext = _drawContext;
 
 		drawQueue = dispatch_queue_create("vuo.window.opengl.internal.draw", 0);
 
-		displayRefresh = VuoDisplayRefresh_make(self);
-		VuoRetain(displayRefresh);
-
 		viewport = NSMakeRect(0, 0, frame.size.width, frame.size.height);
 
-		if ([self respondsToSelector:@selector(setWantsBestResolutionOpenGLSurface:)])
-		{
-			typedef void (*funcType)(id receiver, SEL selector, BOOL wants);
-			funcType setWantsBestResolutionOpenGLSurface = (funcType)[[self class] instanceMethodForSelector:@selector(setWantsBestResolutionOpenGLSurface:)];
-			setWantsBestResolutionOpenGLSurface(self, @selector(setWantsBestResolutionOpenGLSurface:), YES);
-		}
+		[self setWantsBestResolutionOpenGLSurface:YES];
 
 		// Prepare the circle mouse cursor.
 		circleRect = NSMakeRect(0,0,48,48);
@@ -109,20 +110,14 @@ VuoModuleMetadata({
 		[circleImage lockFocus];
 		{
 			[[NSColor colorWithDeviceWhite:1 alpha:0.75] setFill];
-			NSBezierPath *circlePath = [NSBezierPath bezierPathWithOvalInRect:circleRect];
+			[[NSColor colorWithDeviceWhite:0 alpha:0.15] setStroke];
+			NSBezierPath *circlePath = [NSBezierPath bezierPathWithOvalInRect:NSInsetRect(circleRect, 1, 1)];
 			[circlePath fill];
+			[circlePath stroke];
 		}
 		[circleImage unlockFocus];
 	}
 	return self;
-}
-
-/**
- * Performs cleanup prior to closing the window (since -dealloc isn't guaranteed to be called).
- */
-- (void)windowWillClose
-{
-	VuoRelease(displayRefresh);
 }
 
 /**
@@ -147,24 +142,91 @@ VuoModuleMetadata({
 
 	if (!initCallbackCalled)
 	{
+		VUOLOG_PROFILE_BEGIN(drawQueue);
 		dispatch_sync(drawQueue, ^{
+						  VUOLOG_PROFILE_END(drawQueue);
 						  NSOpenGLContext *glContext = [self openGLContext];
 						  CGLContextObj cgl_ctx = [glContext CGLContextObj];
 						  CGLLockContext(cgl_ctx);
 
-						  float backingScaleFactor = 1;
-						  if ([[self window] respondsToSelector:@selector(backingScaleFactor)])
-						  {
-							  typedef double (*backingFuncType)(id receiver, SEL selector);
-							  backingFuncType backingFunc = (backingFuncType)[[[self window] class] instanceMethodForSelector:@selector(backingScaleFactor)];
-							  backingScaleFactor = backingFunc([self window], @selector(backingScaleFactor));
-						  }
+						  float backingScaleFactor = [[self window] backingScaleFactor];
+						  [self.glWindow setBackingScaleFactorCached:backingScaleFactor];
 
 						  initCallback(cgl_ctx, backingScaleFactor, drawContext);
 						  [glContext flushBuffer];
 						  CGLUnlockContext(cgl_ctx);
 					  });
 		initCallbackCalled = true;
+	}
+}
+
+/**
+ * This delegate method fires after the window has changed screens (and many other times).
+ * We need to catch it just when changing screens (reshapeNeeded), and recalculate the glViewport.
+ */
+- (void)viewWillDraw
+{
+	if (reshapeNeeded)
+	{
+		[self reshape];
+		reshapeNeeded = false;
+	}
+}
+
+/**
+ * Called when the view changes screens (and thus maybe the backingScaleFactor changed).
+ *
+ * @threadMain
+ */
+- (void)viewDidChangeBackingProperties
+{
+	__block bool backingScaleFactorChanged = false;
+	__block NSSize oldContentRectPixelSize;
+	VUOLOG_PROFILE_BEGIN(drawQueue);
+	dispatch_sync(drawQueue, ^{
+					  VUOLOG_PROFILE_END(drawQueue);
+					  float backingScaleFactor = [[self window] backingScaleFactor];
+					  backingScaleFactorChanged = (backingScaleFactor != self.glWindow.backingScaleFactorCached);
+					  if (backingScaleFactorChanged)
+					  {
+						  // Get the window's current size in pixels.
+						  NSRect contentRect = [self.window contentRectForFrameRect:[self.window frame]];
+						  oldContentRectPixelSize = NSMakeSize(contentRect.size.width*self.glWindow.backingScaleFactorCached, contentRect.size.height*self.glWindow.backingScaleFactorCached);
+
+						  [self.glWindow setBackingScaleFactorCached:backingScaleFactor];
+
+						  NSOpenGLContext *glContext = [self openGLContext];
+						  CGLContextObj cgl_ctx = [glContext CGLContextObj];
+						  CGLLockContext(cgl_ctx);
+
+						  updateBackingCallback(cgl_ctx, drawContext, backingScaleFactor);
+
+						CGLUnlockContext(cgl_ctx);
+					  }
+				  });
+
+	if (backingScaleFactorChanged)
+	{
+		if (self.glWindow.maintainsPixelSizeWhenBackingChanges)
+		{
+			// Resize the window to maintain its pixel size.
+
+			NSSize newContentRectPointSize = NSMakeSize(oldContentRectPixelSize.width  / self.glWindow.backingScaleFactorCached,
+														oldContentRectPixelSize.height / self.glWindow.backingScaleFactorCached);
+
+
+			NSRect contentRect = [self.window contentRectForFrameRect:[self.window frame]];
+
+			// Adjust the y position by the change in height, so that the window appears to be anchored in its top-left corner
+			// (instead of its bottom-left corner as the system does by default).
+			contentRect.origin.y += contentRect.size.height - newContentRectPointSize.height;
+
+			contentRect.size = newContentRectPointSize;
+			[self.window setFrame:[self.window frameRectForContentRect:contentRect] display:YES animate:NO];
+		}
+
+		// Give the caller a chance to recompute the projection matrix.
+		[self reshape];
 	}
 }
 
@@ -180,38 +242,40 @@ void VuoWindowOpenGLView_draw(VuoReal frameRequest, void *context)
 	{
 		glView->callerRequestedRedraw = false;
 
+		VUOLOG_PROFILE_BEGIN(drawQueue);
 		dispatch_sync(glView->drawQueue, ^{
+						  VUOLOG_PROFILE_END(drawQueue);
+						  NSAutoreleasePool *pool = [NSAutoreleasePool new];
 						  NSOpenGLContext *glContext = [glView openGLContext];
 						  CGLContextObj cgl_ctx = [glContext CGLContextObj];
 						  CGLLockContext(cgl_ctx);
 						  glView->drawCallback(cgl_ctx, glView->drawContext);
 	//					  glFlush();
 	//					  CGLFlushDrawable(CGLGetCurrentContext());
+
+#ifdef PROFILE
+						  static double lastFrameTime = 0;
+						  double start = VuoLogGetTime();
+#endif
+
 						  [glContext flushBuffer];
+
+#ifdef PROFILE
+						  double end = VuoLogGetTime();
+						  if (lastFrameTime > 0 && start-lastFrameTime > 1.5 * 1./60.)
+						  {
+							  double dropTime = (start-lastFrameTime)*60.;
+							  fprintf(stderr, "Dropped frame; draw took %f frame%s\n", dropTime, fabs(dropTime-1)<.00001 ? "" : "s");
+						  }
+						  lastFrameTime = end;
+#endif
+
+						  [[[glView glWindow] recorder] captureImageOfContext:cgl_ctx];
 						  CGLUnlockContext(cgl_ctx);
+						  [pool drain];
 					  });
 
 	}
-}
-
-/**
- * Sets up the view to call trigger functions.
- *
- * @threadAny
- */
-- (void)enableTriggers
-{
-	VuoDisplayRefresh_enableTriggers(displayRefresh, NULL, VuoWindowOpenGLView_draw);
-}
-
-/**
- * Stops the view from calling trigger functions.
- *
- * @threadAny
- */
-- (void)disableTriggers
-{
-	VuoDisplayRefresh_disableTriggers(displayRefresh);
 }
 
 /**
@@ -226,12 +290,11 @@ void VuoWindowOpenGLView_draw(VuoReal frameRequest, void *context)
 
 /**
  * Returns YES if this window is currently fullscreen.
- *
- * Use this instead of -[NSView isInFullScreenMode], since that method doesn't exist on 10.6.
  */
 - (BOOL)isFullScreen
 {
-	return [self.window styleMask] == 0;
+	return [self.window styleMask] == 0
+		|| [(VuoWindowOpenGLInternal *)self.window isInMacFullScreenMode];
 }
 
 /**
@@ -248,13 +311,7 @@ void VuoWindowOpenGLView_draw(VuoReal frameRequest, void *context)
  */
 static NSRect convertPointsToPixels(NSView *view, NSRect rect)
 {
-	// On pre-retina operating systems, we can assume points=pixels.
-	if (![view respondsToSelector:@selector(convertRectToBacking:)])
-		return rect;
-
-	typedef NSRect (*funcType)(id, SEL, NSRect);
-	funcType convertRectToBacking = (funcType)[[view class] instanceMethodForSelector:@selector(convertRectToBacking:)];
-	return convertRectToBacking(view, @selector(convertRectToBacking:), rect);
+	return [view convertRectToBacking:rect];
 }
 
 /**
@@ -262,13 +319,21 @@ static NSRect convertPointsToPixels(NSView *view, NSRect rect)
  */
 static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
 {
-	// On pre-retina operating systems, we can assume points=pixels.
-	if (![view respondsToSelector:@selector(convertRectFromBacking:)])
-		return rect;
+	return [view convertRectFromBacking:rect];
+}
 
-	typedef NSRect (*funcType)(id, SEL, NSRect);
-	funcType convertRectFromBacking = (funcType)[[view class] instanceMethodForSelector:@selector(convertRectFromBacking:)];
-	return convertRectFromBacking(view, @selector(convertRectFromBacking:), rect);
+/**
+ * Cocoa calls this method when it needs us to repaint the view.
+ *
+ * @threadMain
+ */
+- (void)drawRect:(NSRect)bounds
+{
+	if (skipDrawRect)
+		return;
+
+	callerRequestedRedraw = true;
+	VuoWindowOpenGLView_draw(0, self);
 }
 
 /**
@@ -278,8 +343,15 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
  */
 - (void)reshape
 {
-	if (initCallbackCalled)
+	if (!initCallbackCalled)
+		return;
+
+	if ([self.glWindow isClosed])
+		return;
+
+	VUOLOG_PROFILE_BEGIN(drawQueue);
 	dispatch_sync(drawQueue, ^{
+					  VUOLOG_PROFILE_END(drawQueue);
 					  NSOpenGLContext *glContext = [self openGLContext];
 					  CGLContextObj cgl_ctx = [glContext CGLContextObj];
 					  CGLLockContext(cgl_ctx);
@@ -332,8 +404,6 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
 
 					  glViewport(x, y, width, height);
 					  resizeCallback(cgl_ctx, drawContext, width, height);
-					  drawCallback(cgl_ctx, drawContext);
-					  [glContext flushBuffer];
 					  CGLUnlockContext(cgl_ctx);
 				  });
 }
@@ -360,6 +430,33 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
 
 /**
  * Switches between full-screen and windowed mode.
+ *
+ * "Fullscreen" can mean 3 different things:
+ *
+ * 1. `-[NSView enterFullScreenMode:withOptions:]`
+ *    - 10.5+
+ *    - we don't use this at all
+ * 2. Vuo's custom fullscreen mode —
+ *    - instant (no transition animation)
+ *    - achieved by removing the titlebar and resizing the window
+ *    - can go fullscreen on any user-specified VuoScreen
+ *    - can have multiple windows fullscreen simultaneously
+ * 3. `-[NSWindow toggleFullScreen:]`
+ *    - optional in 10.7 – 10.10, mandatory in 10.11+
+ *    - painfully slow transition animation
+ *    - can only have one window fullscreen when
+ *      `System Preferences > Mission Control > Displays have separate Spaces`
+ *      is unchecked
+ *
+ * Vuo uses #2 whenever possible (when triggered by ⌘F or a node),
+ * and since #3 is now mandatory, Vuo supports it where needed —
+ * when the user presses the green button in the titlebar:
+ *
+ *    - the window goes fullscreen (#3)
+ *    - Vuo applies aspect-locking to the interior GL viewport
+ *    - pressing ⌘F or ESC, or using the `Change Fullscreen Status` node,
+ *      initiates the painfully-slow transition back to windowed mode,
+ *      symmetric to how the user entered fullscreen mode
  *
  * @threadMain
  */
@@ -388,29 +485,42 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
 		[self.window setLevel:NSScreenSaverWindowLevel];
 
 		NSSize car = [self.window contentAspectRatio];
+		skipDrawRect = true;
 		[self.window setStyleMask:0];
+		skipDrawRect = false;
 		if (!NSEqualSizes(car, NSMakeSize(0,0)))
 			[self.window setContentAspectRatio:car];
 
 		[self.window setFrame:[self.window screen].frame display:YES];
 
-		[self reshape];
+//		[self reshape];
+
+		[self.window makeFirstResponder:self];
 	}
 	else if (!wantsFullScreen && [self isFullScreen])
 	{
 		// Switch out of fullscreen mode.
 
-		[self.window setLevel:NSNormalWindowLevel];
+		if ([(VuoWindowOpenGLInternal *)self.window isInMacFullScreenMode])
+			[self.window toggleFullScreen:nil];
+		else
+		{
+			[self.window setLevel:NSNormalWindowLevel];
 
-		NSSize car = [self.window contentAspectRatio];
-		[self.window setStyleMask:((VuoWindowOpenGLInternal *)self.window).styleMaskWhenWindowed];
-		[self.window setTitle:((VuoWindowOpenGLInternal *)self.window).titleBackup];
-		if (!NSEqualSizes(car, NSMakeSize(0,0)))
-			[self.window setContentAspectRatio:car];
+			NSSize car = [self.window contentAspectRatio];
+			skipDrawRect = true;
+			[self.window setStyleMask:((VuoWindowOpenGLInternal *)self.window).styleMaskWhenWindowed];
+			skipDrawRect = false;
+			[self.window setTitle:((VuoWindowOpenGLInternal *)self.window).titleBackup];
+			if (!NSEqualSizes(car, NSMakeSize(0,0)))
+				[self.window setContentAspectRatio:car];
 
-		[self.window setFrame:[self.window frameRectForContentRect:((VuoWindowOpenGLInternal *)self.window).contentRectWhenWindowed] display:YES];
+			[self.window setFrame:[self.window frameRectForContentRect:((VuoWindowOpenGLInternal *)self.window).contentRectWhenWindowed] display:YES];
 
-		[self reshape];
+//			[self reshape];
+		}
+
+		[self.window makeFirstResponder:self];
 	}
 }
 
@@ -429,7 +539,11 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
 	NSCursor *nsCursor = nil;
 
 	if (cursor == VuoCursor_None)
-		nsCursor = [[[NSCursor alloc] initWithImage:[[NSImage alloc] initWithSize:NSMakeSize(1,1)] hotSpot:NSMakePoint(0,0)] autorelease];
+	{
+		NSImage *im = [[NSImage alloc] initWithSize:NSMakeSize(1,1)];
+		nsCursor = [[[NSCursor alloc] initWithImage:im hotSpot:NSMakePoint(0,0)] autorelease];
+		[im release];
+	}
 	else if (cursor == VuoCursor_Pointer)
 		nsCursor = [NSCursor arrowCursor];
 	else if (cursor == VuoCursor_Crosshair)
@@ -450,15 +564,44 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
 @end
 
 
+/**
+ * Workaround for Radar #19509497 (see below).
+ */
+@interface NSWindow (Accessibility)
+/**
+ * Workaround for Radar #19509497 (see below).
+ */
+- (void)accessibilitySetSizeAttribute:(NSValue *)size;
+@end
 
 @implementation VuoWindowOpenGLInternal
 
 @synthesize glView;
 @synthesize depthBuffer;
+@synthesize backingScaleFactorCached;
 @synthesize contentRectWhenWindowed;
 @synthesize styleMaskWhenWindowed;
 @synthesize cursor;
 @synthesize titleBackup;
+@synthesize recordMenuItem;
+@synthesize temporaryMovieURL;
+
+/**
+ * On some GPUs, when the window is resized via the Accessiblity API, the GPU crashes when calling `glReadPixels()` the next time (Radar #19509497).
+ *
+ * Skip the Accessiblity resize operation on those GPUs.
+ *
+ * This is a private NSWindow API.
+ * I first tried `AXObserverAddNotification(,,kAXWindowResizedNotification,)`, but that notification happens too late to prevent the crash.
+ */
+- (void)accessibilitySetSizeAttribute:(NSValue *)size
+{
+	CGLContextObj cgl_ctx = [[glView openGLContext] CGLContextObj];
+	if (_recorder && strcmp((const char *)glGetString(GL_RENDERER), "NVIDIA GeForce GT 650M OpenGL Engine") == 0)
+		return;
+
+	[super accessibilitySetSizeAttribute:size];
+}
 
 /**
  * Creates a window containing an OpenGL view.
@@ -467,11 +610,13 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
  */
 - (id)initWithDepthBuffer:(BOOL)_depthBuffer
 			  initCallback:(void (*)(VuoGlContext glContext, float backingScaleFactor, void *))_initCallback
+	 updateBackingCallback:(void (*)(VuoGlContext glContext, void *, float backingScaleFactor))_updateBackingCallback
 			resizeCallback:(void (*)(VuoGlContext glContext, void *, unsigned int width, unsigned int height))_resizeCallback
 			  drawCallback:(void (*)(VuoGlContext glContext, void *))_drawCallback
 			   drawContext:(void *)_drawContext
 {
-	contentRectWhenWindowed = NSMakeRect(0, 0, 1024, 768);
+	NSRect mainScreenFrame = [[NSScreen mainScreen] frame];
+	contentRectWhenWindowed = NSMakeRect(mainScreenFrame.origin.x, mainScreenFrame.origin.y, 1024, 768);
 	styleMaskWhenWindowed = NSTitledWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask;
 	if (self = [super initWithContentRect:contentRectWhenWindowed
 								styleMask:styleMaskWhenWindowed
@@ -480,6 +625,7 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
 	{
 		self.depthBuffer = _depthBuffer;
 		self.delegate = self;
+		self.releasedWhenClosed = NO;
 
 		cursor = VuoCursor_Pointer;
 
@@ -489,16 +635,28 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
 
 		[self setAcceptsMouseMovedEvents:YES];
 
+//		self.collectionBehavior = NSWindowCollectionBehaviorFullScreenAuxiliary;
+
+		[self initDrag];
+		[self registerForDraggedTypes:[NSArray arrayWithObject:NSFilenamesPboardType]];
+
 		userResizedWindow = NO;
 		programmaticallyResizingWindow = NO;
 
 		[self setTitle:@"Vuo Scene"];
 
+		contentRectQueue = dispatch_queue_create("vuo.window.opengl.internal.contentrect", 0);
+
 		VuoWindowOpenGLView *_glView = [[VuoWindowOpenGLView alloc] initWithFrame:[[self contentView] frame]
 																	 initCallback:_initCallback
+															updateBackingCallback:_updateBackingCallback
 																   resizeCallback:_resizeCallback
 																	 drawCallback:_drawCallback
 																	  drawContext:_drawContext];
+
+		displayRefresh = VuoDisplayRefresh_make(_glView);
+		VuoRetain(displayRefresh);
+
 		self.glView = _glView;
 		[_glView release];
 
@@ -510,24 +668,39 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
 			CGLError error = CGLCreateContext(pixelFormat, vuoSharedGlContext, &vuoGlContext);
 			if (error != kCGLNoError)
 			{
-				VLog("Error: %s", CGLErrorString(error));
+				VUserLog("Error: %s", CGLErrorString(error));
+
+				CGLPixelFormatObj basePF = CGLGetPixelFormat(vuoSharedGlContext);
+				VuoCglPixelFormat_logDiff(basePF, pixelFormat);
+
 				return NULL;
 			}
 			VuoGlContext_disuse(vuoSharedGlContext);
 			CGLDestroyPixelFormat(pixelFormat);
 		}
 
-		glView.windowedGlContext = [[NSOpenGLContext alloc] initWithCGLContextObj:vuoGlContext];
+		NSOpenGLContext *glc = [[NSOpenGLContext alloc] initWithCGLContextObj:vuoGlContext];
 		int swapInterval=1;
-		[glView.windowedGlContext setValues:&swapInterval forParameter:NSOpenGLCPSwapInterval];
-		[glView setOpenGLContext:glView.windowedGlContext];
+		[glc setValues:&swapInterval forParameter:NSOpenGLCPSwapInterval];
+		[glView setOpenGLContext:glc];
+		glView.windowedGlContext = glc;
+		[glc release];
 
 		// 2. Add the view to the window. Do after (1) to have the desired GL context in -viewDidMoveToWindow.
 		[self setContentView:glView];
 
+		// -[NSOpenGLContext setView] changes the TLS context.
+		// Store it so we can change it back afterward, to be friendly to third-party host apps that use the TLS context.
+		CGLContextObj priorMainThreadContext = CGLGetCurrentContext();
+
 		// 3. Set the view for the GL context. Do after (2) to avoid an "invalid drawable" warning.
 		[glView.windowedGlContext setView:glView];
+
+		CGLSetCurrentContext(priorMainThreadContext);
 	}
+
+	[self setContentRectCached:[[self glView] viewport]];
+
 	return self;
 }
 
@@ -543,9 +716,10 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
 /**
  * Releases instance variables.
  */
-- (void)windowWillClose:(NSNotification *)notification
+- (void)dealloc
 {
-	[glView windowWillClose];
+	VuoRelease(displayRefresh);
+	[super dealloc];
 }
 
 /**
@@ -573,13 +747,70 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
 {
 	[super becomeMainWindow];
 
+	NSMenu *fileMenu = [[[NSMenu alloc] initWithTitle:@"File"] autorelease];
+	self.recordMenuItem = [[[NSMenuItem alloc] initWithTitle:@"" action:@selector(toggleRecording) keyEquivalent:@"e"] autorelease];
+	[self.recordMenuItem setKeyEquivalentModifierMask:NSCommandKeyMask|NSAlternateKeyMask];
+	[fileMenu addItem:self.recordMenuItem];
+	NSMenuItem *fileMenuItem = [[NSMenuItem new] autorelease];
+	[fileMenuItem setSubmenu:fileMenu];
+
 	NSMenu *viewMenu = [[[NSMenu alloc] initWithTitle:@"View"] autorelease];
 	NSMenuItem *fullScreenMenuItem = [[[NSMenuItem alloc] initWithTitle:@"Full Screen" action:@selector(toggleFullScreen) keyEquivalent:@"f"] autorelease];
 	[viewMenu addItem:fullScreenMenuItem];
 	NSMenuItem *viewMenuItem = [[NSMenuItem new] autorelease];
 	[viewMenuItem setSubmenu:viewMenu];
-	NSArray *windowMenuItems = [NSArray arrayWithObject:viewMenuItem];
-	[(VuoWindowApplication *)NSApp replaceWindowMenu:windowMenuItems];
+
+	NSMutableArray *windowMenuItems = [NSMutableArray arrayWithCapacity:3];
+	[windowMenuItems addObject:fileMenuItem];
+	[windowMenuItems addObject:viewMenuItem];
+	oldMenu = [(NSMenu *)VuoApp_setMenuItems(windowMenuItems) retain];
+
+	[self updateUI];
+}
+
+/**
+ * Updates the menu bar with the host app's menu prior to when this window was activated.
+ */
+- (void)resignMainWindow
+{
+	[super resignMainWindow];
+
+	VuoApp_setMenu(oldMenu);
+	[oldMenu release];
+	oldMenu = nil;
+}
+
+/**
+ * Updates the menu bar with the host app's menu prior to when this window was activated.
+ */
+- (void)windowWillClose:(NSNotification *)notification
+{
+	VuoApp_setMenu(oldMenu);
+	[oldMenu release];
+	oldMenu = nil;
+	_isClosed = YES;
+}
+
+/**
+ * NSOpenGLView changes the TLS context before rendering.
+ * Store it so we can change it back afterward, to be friendly to third-party host apps that use the TLS context.
+ */
+- (void)displayIfNeeded
+{
+	CGLContextObj priorMainThreadContext = CGLGetCurrentContext();
+	[super displayIfNeeded];
+	CGLSetCurrentContext(priorMainThreadContext);
+}
+
+/**
+ * NSOpenGLView changes the TLS context before rendering.
+ * Store it so we can change it back afterward, to be friendly to third-party host apps that use the TLS context.
+ */
+- (void)setFrame:(NSRect)windowFrame display:(BOOL)displayViews
+{
+	CGLContextObj priorMainThreadContext = CGLGetCurrentContext();
+	[super setFrame:windowFrame display:displayViews];
+	CGLSetCurrentContext(priorMainThreadContext);
 }
 
 /**
@@ -587,13 +818,14 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
  *
  * @threadAny
  */
-- (void)enableTriggers:(void (*)(VuoWindowReference))_showedWindow
+- (void)enableShowedWindowTrigger:(void (*)(VuoWindowReference))_showedWindow requestedFrameTrigger:(void (*)(VuoReal))_requestedFrame
 {
 	callbacksEnabled = YES;
 
 	showedWindow = _showedWindow;
 	showedWindow(VuoWindowReference_make(self));
-	[glView enableTriggers];
+
+	VuoDisplayRefresh_enableTriggers(displayRefresh, _requestedFrame, VuoWindowOpenGLView_draw);
 }
 
 /**
@@ -606,7 +838,8 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
 	callbacksEnabled = NO;
 
 	showedWindow = NULL;
-	[glView disableTriggers];
+
+	VuoDisplayRefresh_disableTriggers(displayRefresh);
 }
 
 /**
@@ -635,31 +868,54 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
 		if (property.type == VuoWindowProperty_Title)
 			[self setTitle:[NSString stringWithUTF8String:property.title]];
 		else if (property.type == VuoWindowProperty_FullScreen)
-			[self setFullScreen:property.fullScreen onScreen:VuoScreen_getNSScreen(property.screen)];
+		{
+			NSScreen *requestedScreen = VuoScreen_getNSScreen(property.screen);
+
+			// If we're already fullscreen, and the property tells us to switch to a different screen,
+			// temporarily switch back to windowed mode, so that we can cleanly switch to fullscreen on the new screen.
+			if ([glView isFullScreen] && property.fullScreen)
+			{
+				NSInteger requestedDeviceId = [[[requestedScreen deviceDescription] objectForKey:@"NSScreenNumber"] integerValue];
+				NSInteger currentDeviceId = [[[self.screen deviceDescription] objectForKey:@"NSScreenNumber"] integerValue];
+				if (requestedDeviceId != currentDeviceId)
+					[self setFullScreen:NO onScreen:nil];
+			}
+
+			[self setFullScreen:property.fullScreen onScreen:requestedScreen];
+		}
 		else if (property.type == VuoWindowProperty_Position)
 		{
+			NSRect propertyInPoints = NSMakeRect(property.left, property.top, 0, 0);
+			if (property.unit == VuoCoordinateUnit_Pixels)
+				propertyInPoints = convertPixelsToPoints(glView, propertyInPoints);
+
 			NSRect mainScreenRect = [[[NSScreen screens] objectAtIndex:0] frame];
 			if ([glView isFullScreen])
-				contentRectWhenWindowed.origin = NSMakePoint(property.left, mainScreenRect.size.height - contentRectWhenWindowed.size.height - property.top);
+				contentRectWhenWindowed.origin = NSMakePoint(propertyInPoints.origin.x, mainScreenRect.size.height - contentRectWhenWindowed.size.height - propertyInPoints.origin.y);
 			else
 			{
 				NSRect contentRect = [self contentRectForFrameRect:[self frame]];
-				[self setFrameOrigin:NSMakePoint(property.left, mainScreenRect.size.height - contentRect.size.height - property.top)];
+				[self setFrameOrigin:NSMakePoint(propertyInPoints.origin.x, mainScreenRect.size.height - contentRect.size.height - propertyInPoints.origin.y)];
 			}
 		}
 		else if (property.type == VuoWindowProperty_Size)
 		{
+			NSRect propertyInPoints = NSMakeRect(0, 0, property.width, property.height);
+			if (property.unit == VuoCoordinateUnit_Pixels)
+				propertyInPoints = convertPixelsToPoints(glView, propertyInPoints);
+			_maintainsPixelSizeWhenBackingChanges = (property.unit == VuoCoordinateUnit_Pixels);
+
 			if ([glView isFullScreen])
-				contentRectWhenWindowed.size = NSMakeSize(property.width, property.height);
+				contentRectWhenWindowed.size = propertyInPoints.size;
 			else
 			{
 				NSRect contentRect = [self contentRectForFrameRect:[self frame]];
 
 				// Adjust the y position by the change in height, so that the window appears to be anchored in its top-left corner
 				// (instead of its bottom-left corner as the system does by default).
-				contentRect.origin.y += contentRect.size.height - property.height;
+				contentRect.origin.y += contentRect.size.height - propertyInPoints.size.height;
 
-				contentRect.size = NSMakeSize(property.width, property.height);
+				contentRect.size = NSMakeSize(propertyInPoints.size.width, propertyInPoints.size.height);
 				[self setFrame:[self frameRectForContentRect:contentRect] display:YES animate:NO];
 			}
 		}
@@ -695,7 +951,9 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
  */
 - (void)executeWithWindowContext:(void(^)(VuoGlContext glContext))blockToExecute
 {
+	VUOLOG_PROFILE_BEGIN(drawQueue);
 	dispatch_sync([glView drawQueue], ^{
+					  VUOLOG_PROFILE_END(drawQueue);
 					  CGLContextObj cgl_ctx = [[glView openGLContext] CGLContextObj];
 					  CGLLockContext(cgl_ctx);
 					  blockToExecute(cgl_ctx);
@@ -800,6 +1058,26 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
 		if (showedWindow)
 			showedWindow(VuoWindowReference_make(self));
 	}
+
+	[self setContentRectCached:[[self glView] viewport]];
+}
+
+/**
+ * Keep track of when the window enters OS X's now-mandatory 10.7+ fullscreen mode,
+ * so we can apply reshape constraints, and prevent entering Vuo's custom fullscreen mode.
+ */
+- (void)windowWillEnterFullScreen:(NSNotification *)notification
+{
+	self.isInMacFullScreenMode = YES;
+}
+
+/**
+ * Keep track of when the window exits OS X's now-mandatory 10.7+ fullscreen mode,
+ * so we can apply reshape constraints, and prevent entering Vuo's custom fullscreen mode.
+ */
+- (void)windowWillExitFullScreen:(NSNotification *)notification
+{
+	self.isInMacFullScreenMode = NO;
 }
 
 /**
@@ -811,6 +1089,23 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
 {
 	if (showedWindow && !programmaticallyResizingWindow)
 		showedWindow(VuoWindowReference_make(self));
+}
+
+/**
+ * This delegate method fires after the window has changed screens,
+ * later in the process than -[NSView viewDidChangeBackingProperties] fires.
+ * We need to catch this since Cocoa automatically resets the glViewport to the wrong value
+ * sometime in between these two delegate methods.
+ *
+ * Also, when fullscreen on a screen that disappears,
+ * we need to adjust the window to fit the screen on which the window next appears.
+ */
+- (void)windowDidChangeScreen:(NSNotification *)notification
+{
+	glView.reshapeNeeded = true;
+
+	if ([glView isFullScreen])
+		[self setFrame:[self screen].frame display:YES];
 }
 
 /**
@@ -834,13 +1129,128 @@ static NSRect convertPixelsToPoints(NSView *view, NSRect rect)
 }
 
 /**
- * Outputs the window's current width and height.
+ * Starts or stops recording a movie of the currently-selected window.
+ *
+ * @threadMain
  */
-- (void)getWidth:(unsigned int *)pixelsWide height:(unsigned int *)pixelsHigh
+- (void)toggleRecording
 {
-	NSSize size = [self frame].size;
-	*pixelsWide = size.width;
-	*pixelsHigh = size.height;
+	if (!self.recorder)
+	{
+		// Start recording to a temporary file (rather than first asking for the filename, to make it quicker to start recording).
+		self.temporaryMovieURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:[[NSProcessInfo processInfo] globallyUniqueString]]];
+		VuoWindowRecorder *r = [[VuoWindowRecorder alloc] initWithWindow:self url:self.temporaryMovieURL];
+		self.recorder = r;
+		[r release];
+
+		[self updateUI];
+	}
+	else
+		[self stopRecording];
+}
+
+/**
+ * Ask the user for a permanent location to move the temporary movie file to.
+ */
+- (void)promptToSaveMovie
+{
+	NSSavePanel *sp = [NSSavePanel savePanel];
+	[sp setTitle:@"Save Movie"];
+	[sp setNameFieldLabel:@"Save Movie To:"];
+	[sp setPrompt:@"Save"];
+	[sp setAllowedFileTypes:@[@"mov"]];
+	if ([sp runModal] == NSFileHandlingPanelCancelButton)
+		goto done;
+
+	NSError *error;
+	if (![[NSFileManager defaultManager] moveItemAtURL:self.temporaryMovieURL toURL:[sp URL] error:&error])
+	{
+		if ([error code] == NSFileWriteFileExistsError)
+		{
+			// File exists.  Since, in the NSSavePanel, the user said to Replace, try replacing it.
+			if (![[NSFileManager defaultManager] replaceItemAtURL:[sp URL]
+					  withItemAtURL:self.temporaryMovieURL
+					 backupItemName:nil
+							options:0
+				   resultingItemURL:nil
+							  error:&error])
+			{
+				// Replacement failed; show error…
+				NSAlert *alert = [NSAlert alertWithError:error];
+				[alert runModal];
+
+				// …and give the user another chance.
+				[self promptToSaveMovie];
+			}
+			goto done;
+		}
+
+		NSAlert *alert = [NSAlert alertWithError:error];
+		[alert runModal];
+	}
+
+done:
+	self.temporaryMovieURL = nil;
+}
+
+/**
+ * Stops recording a movie of the currently-selected window.
+ *
+ * Does nothing if recording is not currently enabled.
+ *
+ * @threadMain
+ */
+- (void)stopRecording
+{
+	if (!_recorder)
+		return;
+
+	[_recorder finish];
+	[_recorder release];
+	_recorder = nil;
+
+	[self updateUI];
+
+	[glView setFullScreen:NO onScreen:nil];
+
+	[self promptToSaveMovie];
+}
+
+/**
+ * Updates various UI elements to match current internal state.
+ */
+- (void)updateUI
+{
+	if (self.recorder)
+		self.recordMenuItem.title = @"Stop Recording…";
+	else
+		self.recordMenuItem.title = @"Start Recording";
+}
+
+/**
+ * Thread-safe accessor.
+ *
+ * @threadAny
+ */
+- (NSRect)contentRectCached
+{
+	__block NSRect c;
+	dispatch_sync(contentRectQueue, ^{
+					  c = contentRectCached;
+				  });
+	return c;
+}
+
+/**
+ * Thread-safe mutator.
+ *
+ * @threadAny
+ */
+- (void)setContentRectCached:(NSRect)c
+{
+	dispatch_sync(contentRectQueue, ^{
+					  contentRectCached = c;
+				  });
 }
 
 @end

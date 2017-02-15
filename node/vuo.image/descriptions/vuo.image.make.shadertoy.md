@@ -6,12 +6,14 @@ Shadertoy provides some special `uniform` values that are exposed as port values
 
    - `Global Time` — The current time that is passed to the shader.  Usually you'll want to connect a `Render Image/Layers/Scene to Window` node's `Requested Frame` output to this port.
    - `Channel 0–3` — Images to be passed to the shader.
-   - `Mouse Position` — The mouse position in Vuo coordinates.
+   - `Mouse Position` — The mouse position in Vuo Coordinates.
    - `Mouse Is Pressed` — Whether the mouse button is pressed.
 
 To mimic the way the Shadertoy website handles interaction, connect the `Check Mouse Status` node's corresponding ports to this node.
 
 All Shadertoy-specific inputs are supported, except `iChannelTime` and the ability to feed audio into the `iChannel` ports.
+
+When typing in the `Fragment Shader` port's input editor, the Return and Tab keys type text as they normally would in a text editor (unlike most other text ports' input editors). To close the input editor, click away from it or press Command-Return.
 
 ### Troubleshooting
 

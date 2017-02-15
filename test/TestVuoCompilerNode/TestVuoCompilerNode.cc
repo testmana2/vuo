@@ -2,7 +2,7 @@
  * @file
  * TestVuoCompilerNode interface and implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include "TestVuoCompiler.hh"
 #include "VuoCompiler.hh"
+#include "VuoCompilerInputEventPort.hh"
 #include "VuoCompilerNode.hh"
 #include "VuoCompilerTriggerPort.hh"
 #include "VuoCompilerOutputEventPort.hh"
@@ -19,7 +20,7 @@
 
 
 class TestVuoCompilerNode;
-typedef Module * (TestVuoCompilerNode::*moduleFunction_t)();  ///< A function that creates a @c Module.
+typedef Module * (TestVuoCompilerNode::*moduleFunction_t)(void);  ///< A function that creates a @c Module.
 
 // Be able to use these types in QTest::addColumn()
 Q_DECLARE_METATYPE(moduleFunction_t);
@@ -55,29 +56,6 @@ private slots:
 	void cleanupTestCase()
 	{
 		cleanupCompiler();
-	}
-
-	void testGlobalVariableIdentifiers()
-	{
-		VuoCompilerNodeClass *nodeClass = compiler->getNodeClass("vuo.math.round");
-		VuoCompilerNode *nodeWithDefaultName1 = nodeClass->newNode()->getCompiler();
-		nodeWithDefaultName1->setGraphvizIdentifier("Round");
-		VuoCompilerNode *nodeWithDefaultName2 = nodeClass->newNode()->getCompiler();
-		nodeWithDefaultName2->setGraphvizIdentifier("Round2");
-		VuoCompilerNode *nodeWithDefaultName3 = nodeClass->newNode()->getCompiler();
-		nodeWithDefaultName3->setGraphvizIdentifier("Round3");
-		VuoCompilerNode *nodeWithOverriddenName = nodeClass->newNode("Overridden")->getCompiler();
-
-		Module module("TestGlobalVariableIdentifiers", getGlobalContext());
-		nodeWithDefaultName1->generateAllocation(&module);
-		nodeWithDefaultName2->generateAllocation(&module);
-		nodeWithDefaultName3->generateAllocation(&module);
-		nodeWithOverriddenName->generateAllocation(&module);
-
-		QVERIFY(NULL != module.getGlobalVariable("vuo_math_round__Round__runtime__refresh_event", true));
-		QVERIFY(NULL != module.getGlobalVariable("vuo_math_round__Round2__runtime__refresh_event", true));
-		QVERIFY(NULL != module.getGlobalVariable("vuo_math_round__Round3__runtime__refresh_event", true));
-		QVERIFY(NULL != module.getGlobalVariable("vuo_math_round__Overridden__runtime__refresh_event", true));
 	}
 
 	void testPortInitialValue_data()

@@ -2,7 +2,7 @@
  * @file
  * VuoMathExpressionParser interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -25,6 +25,8 @@ extern "C"
 
 typedef void * VuoMathExpressionParser;  ///< Parses and performs calculations with mathematical expressions.
 typedef void * VuoMathExpressionError;  ///< Error caused by invalid expression given to VuoMathExpressionParser.
+
+void VuoMathExpressionParser_defineStandardLibrary(void *muparser);
 
 VuoMathExpressionParser VuoMathExpressionParser_makeFromSingleExpression(VuoText expression,
 																		 VuoMathExpressionError *error);

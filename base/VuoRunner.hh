@@ -2,7 +2,7 @@
  * @file
  * VuoRunner interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -23,7 +23,7 @@ class VuoRunnerDelegate;
 #ifdef VUO_CLANG_32_OR_LATER
 	#pragma clang diagnostic ignored "-Wdocumentation"
 #endif
-#include "json/json.h"
+#include "json-c/json.h"
 #pragma clang diagnostic pop
 
 
@@ -71,9 +71,10 @@ class VuoRunner
 {
 public:
 	class Port;
-	static VuoRunner * newSeparateProcessRunnerFromCompositionFile(string compositionPath);
-	static VuoRunner * newSeparateProcessRunnerFromExecutable(string executablePath, string sourceDir, bool deleteExecutableWhenFinished = false);
-	static VuoRunner * newSeparateProcessRunnerFromDynamicLibrary(string compositionLoaderPath, string compositionDylibPath, string resourceDylibPath, string sourceDir, bool deleteDylibsWhenFinished = false);
+	static VuoRunner * newSeparateProcessRunnerFromCompositionFile(string compositionPath, bool continueIfRunnerDies = false, bool useExistingCache = false);
+	static VuoRunner * newSeparateProcessRunnerFromCompositionString(string compositionString, string name, string sourceDir, bool continueIfRunnerDies = false, bool useExistingCache = false);
+	static VuoRunner * newSeparateProcessRunnerFromExecutable(string executablePath, string sourceDir, bool continueIfRunnerDies = false, bool deleteExecutableWhenFinished = false);
+	static VuoRunner * newSeparateProcessRunnerFromDynamicLibrary(string compositionLoaderPath, string compositionDylibPath, string resourceDylibPath, string sourceDir, bool continueIfRunnerDies = false, bool deleteDylibsWhenFinished = false);
 	static VuoRunner * newCurrentProcessRunnerFromDynamicLibrary(string dylibPath, string sourceDir, bool deleteDylibWhenFinished = false);
 	~VuoRunner(void);
 	void start(void);
@@ -101,8 +102,18 @@ public:
 	json_object * getOutputPortValue(string portIdentifier);
 	string getInputPortSummary(string portIdentifier);
 	string getOutputPortSummary(string portIdentifier);
+	string subscribeToInputPortTelemetry(string portIdentifier);
+	string subscribeToOutputPortTelemetry(string portIdentifier);
+	void unsubscribeFromInputPortTelemetry(string portIdentifier);
+	void unsubscribeFromOutputPortTelemetry(string portIdentifier);
+	void subscribeToEventTelemetry(void);
+	void unsubscribeFromEventTelemetry(void);
+	void subscribeToAllTelemetry(void);
+	void unsubscribeFromAllTelemetry(void);
 	bool isStopped(void);
 	void setDelegate(VuoRunnerDelegate *delegate);
+	void setTrialRestrictions(bool isTrial);
+	static void initializeCompilerCache();
 
 	/**
 	 * This class represents a published port in a composition. It maintains a list of the identifiers
@@ -122,13 +133,9 @@ public:
 		friend class VuoRunner;
 
 	private:
-		set<string> getConnectedPortIdentifiers(void);
-		void setConnectedPortIdentifiers(set<string> connectedPortIdentifiers);
-
 		string name;
 		string type;
 		json_object *details;
-		set<string> connectedPortIdentifiers;
 	};
 
 private:
@@ -136,18 +143,27 @@ private:
 	string dylibPath;  ///< The path to the linked composition dynamic library.
 	void *dylibHandle;  ///< A handle to the linked composition dynamic library.
 	vector<string> resourceDylibPaths;  ///< The paths to the linked composition resource dynamic libraries.
+	bool shouldContinueIfRunnerDies;  ///< True if the composition should keep running if the runner process ends.
 	bool shouldDeleteBinariesWhenFinished;  ///< True if the composition binary file(s) should be deleted when the runner is finished using them.
 	string sourceDir;  ///< The directory containing the composition's .vuo source file.
 	string originalWorkingDir;  ///< The working directory before the composition was started, if running in the current process.
+	bool paused;  ///< True if the composition is in a paused state.
 	bool stopped;	///< True if the composition is in a stopped state (either never started or started then stopped).
+	bool lostContact;   ///< True if the runner stopped receiving communication from the composition.
 	bool listenCanceled;  ///< True if the listen() loop should end.
 	dispatch_semaphore_t stoppedSemaphore;  ///< Signaled when the composition stops.
+	dispatch_semaphore_t terminatedZMQContextSemaphore;  ///< Signaled when ZMQContext is terminated by stopBecauseLostContact().
 	dispatch_semaphore_t beganListeningSemaphore;  ///< Signaled when the listen() socket connects.
 	dispatch_semaphore_t endedListeningSemaphore;  ///< Signaled when the listen() loop ends.
 	dispatch_queue_t controlQueue;  ///< Synchronizes control requests, so that each control request+reply is completed before the next begins.
 	pid_t compositionPid;	///< The Unix process id of the running composition.
+	int runnerReadCompositionWritePipe[2];	///< A Unix pipe used to wait for compositionPid to finish.
+	static vector<int> allCompositionWritePipes;	///< The Unix write pipes for all running compositions created by this process.
+	bool trialRestrictionsEnabled;	///< If true, some nodes may restrict how they can be used.
 
 	void *ZMQContext;	///< The context used to initialize sockets.
+	void *ZMQSelfReceive;	///< VuoRunner self-control socket. Not thread-safe.
+	void *ZMQSelfSend;		///< VuoRunner self-control socket. Not thread-safe.
 	void *ZMQControl;	///< The control socket. Not thread-safe.
 	void *ZMQTelemetry;	///< The telemetry socket. Not thread-safe.
 	void *ZMQLoaderControl;	 ///< The composition loader control socket. Not thread-safe.
@@ -169,8 +185,8 @@ private:
 	void saturating_semaphore_wait(dispatch_semaphore_t dsema, bool *sent);
 
 	VuoRunner(void);
-	void start(bool isPaused);
-	void listen(void);
+	void startInternal(void);
+	bool listen(string &error);
 	void setUpConnections(void);
 	void cleanUpConnections(void);
 	void vuoControlRequestSend(enum VuoControlRequest request, zmq_msg_t *messages, unsigned int messageCount);
@@ -178,11 +194,13 @@ private:
 	void vuoControlReplyReceive(enum VuoControlReply expectedReply);
 	void vuoLoaderControlReplyReceive(enum VuoLoaderControlReply expectedReply);
 	bool hasMoreToReceive(void *socket);
-	vector<string> receiveListOfStrings(void *socket);
+	string receiveString(string fallbackIfNull);
+	vector<string> receiveListOfStrings(void);
 	vector<Port *> getCachedPublishedPorts(bool input);
 	vector<Port *> refreshPublishedPorts(bool input);
 	bool isInCurrentProcess(void);
 	bool isUsingCompositionLoader(void);
+	void stopBecauseLostContact(string errorMessage);
 
 	friend class TestVuoRunner;
 };

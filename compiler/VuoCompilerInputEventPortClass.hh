@@ -2,7 +2,7 @@
  * @file
  * VuoCompilerInputEventPortClass interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -11,8 +11,10 @@
 #define VUOCOMPILERINPUTEVENTPORTCLASS_H
 
 #include "VuoCompilerEventPortClass.hh"
-#include "VuoCompilerInputDataClass.hh"
 
+class VuoCompilerInputDataClass;
+class VuoCompilerPort;
+class VuoPort;
 
 /**
  * An input port type, optionally with data.
@@ -25,11 +27,6 @@ public:
 	VuoCompilerPort * newPort(void);
 	VuoCompilerPort * newPort(VuoPort *port);
 	VuoCompilerInputDataClass * getDataClass(void);
-	void setPortAction(bool portAction);
-	bool hasPortAction(void);
-
-private:
-	bool portAction;
 };
 
 

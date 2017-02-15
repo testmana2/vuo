@@ -2,7 +2,7 @@
  * @file
  * vuo.scene.copy node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -12,7 +12,7 @@
 VuoModuleMetadata({
 					 "title" : "Copy 3D Object with Transforms",
 					 "keywords" : [ "duplicate", "clone", "array", "instance", "instantiate", "populate", "replicate" ],
-					 "version" : "2.0.0",
+					 "version" : "2.0.2",
 					 "node": {
 						  "exampleCompositions" : [ ]
 					 }
@@ -25,8 +25,7 @@ void nodeEvent
 	VuoOutputData(VuoSceneObject) copies
 )
 {
-	*copies = VuoSceneObject_makeEmpty();
-	copies->childObjects = VuoListCreate_VuoSceneObject();
+	*copies = VuoSceneObject_makeGroup(VuoListCreate_VuoSceneObject(), VuoTransform_makeIdentity());
 
 	for(int i = 0; i < VuoListGetCount_VuoTransform(transforms); i++)
 	{
@@ -35,7 +34,7 @@ void nodeEvent
 		VuoListAppendValue_VuoSceneObject(copies->childObjects, VuoSceneObject_make(
 			object.mesh,
 			object.shader,
-			transform,
+			VuoTransform_composite(object.transform, transform),
 			object.childObjects
 			));
 	}

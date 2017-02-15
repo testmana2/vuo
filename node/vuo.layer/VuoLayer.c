@@ -2,7 +2,7 @@
  * @file
  * VuoLayer implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -13,6 +13,7 @@
 #include "type.h"
 #include "VuoLayer.h"
 #include "VuoList_VuoSceneObject.h"
+#include "VuoImageBlur.h"
 #include "VuoImageText.h"
 
 /// @{
@@ -24,6 +25,7 @@ VuoModuleMetadata({
 					 "version" : "1.0.0",
 					 "dependencies" : [
 						"VuoColor",
+						"VuoImageBlur",
 						"VuoImageText",
 						"VuoPoint2d",
 						"VuoSceneObject",
@@ -103,11 +105,7 @@ VuoLayer VuoLayer_makeRealSize(VuoText name, VuoImage image, VuoPoint2d center, 
 static VuoLayer VuoLayer_makeWithShadowInternal(VuoText name, VuoImage image, VuoPoint2d center, VuoReal rotation, VuoReal width, VuoReal alpha, VuoColor shadowColor, VuoReal shadowBlur, VuoReal shadowAngle, VuoReal shadowDistance, VuoBoolean isRealSize)
 {
 	if (!image)
-	{
-		VuoLayer l;
-		l.sceneObject = VuoSceneObject_makeEmpty();
-		return l;
-	}
+		return VuoLayer_makeEmpty();
 
 	// Create a pair of layers, one for the main layer and one for the shadow, and put them in a group.
 	// Apply the transformation to the individual layers, rather than to the group, so that
@@ -131,7 +129,10 @@ static VuoLayer VuoLayer_makeWithShadowInternal(VuoText name, VuoImage image, Vu
 	VuoRetain(recoloredImage);
 	VuoRelease(colors);
 
-	VuoImage blurredImage = VuoImage_blur(recoloredImage, shadowBlur, TRUE);
+	VuoImageBlur *ib = VuoImageBlur_make();
+	VuoRetain(ib);
+	VuoImage blurredImage = VuoImageBlur_blur(ib, recoloredImage, shadowBlur, TRUE);
+	VuoRelease(ib);
 	float shadowAngleInRadians = shadowAngle * M_PI/180.;
 	VuoPoint3d shadowOffset3d = VuoPoint3d_make(shadowDistance * cos(shadowAngleInRadians),
 												shadowDistance * sin(shadowAngleInRadians),
@@ -287,12 +288,13 @@ VuoLayer VuoLayer_makeRoundedRectangle(VuoText name, VuoColor color, VuoPoint2d 
  * @param rotation The layer's angle, in degrees.
  * @param width The width of the layer, in Vuo Coordinates.
  * @param height The height of the layer, in Vuo Coordinates.
+ * @param noiseAmount How much random noise to add to the gradient.  Typically between 0 and 1.
  */
-VuoLayer VuoLayer_makeLinearGradient(VuoText name, VuoList_VuoColor colors, VuoPoint2d start, VuoPoint2d end, VuoPoint2d center, VuoReal rotation, VuoReal width, VuoReal height)
+VuoLayer VuoLayer_makeLinearGradient(VuoText name, VuoList_VuoColor colors, VuoPoint2d start, VuoPoint2d end, VuoPoint2d center, VuoReal rotation, VuoReal width, VuoReal height, VuoReal noiseAmount)
 {
 	VuoLayer o;
 	o.sceneObject = VuoSceneObject_makeQuad(
-				VuoShader_makeLinearGradientShader(colors, start, end),
+				VuoShader_makeLinearGradientShader(colors, start, end, noiseAmount),
 				VuoPoint3d_make(center.x, center.y, 0),
 				VuoPoint3d_make(0, 0, rotation),
 				width,
@@ -313,12 +315,13 @@ VuoLayer VuoLayer_makeLinearGradient(VuoText name, VuoList_VuoColor colors, VuoP
  * @param rotation The layer's angle, in degrees.
  * @param width The width of the layer, in Vuo Coordinates.
  * @param height The height of the layer, in Vuo Coordinates.
+ * @param noiseAmount How much random noise to add to the gradient.  Typically between 0 and 1.
  */
-VuoLayer VuoLayer_makeRadialGradient(VuoText name, VuoList_VuoColor colors, VuoPoint2d gradientCenter, VuoReal radius, VuoPoint2d center, VuoReal rotation, VuoReal width, VuoReal height)
+VuoLayer VuoLayer_makeRadialGradient(VuoText name, VuoList_VuoColor colors, VuoPoint2d gradientCenter, VuoReal radius, VuoPoint2d center, VuoReal rotation, VuoReal width, VuoReal height, VuoReal noiseAmount)
 {
 	VuoLayer o;
 	o.sceneObject = VuoSceneObject_makeQuad(
-				VuoShader_makeRadialGradientShader(colors, gradientCenter, radius, width, height),
+				VuoShader_makeRadialGradientShader(colors, gradientCenter, radius, width, height, noiseAmount),
 				VuoPoint3d_make(center.x, center.y, 0),
 				VuoPoint3d_make(0, 0, rotation),
 				width,
@@ -334,9 +337,7 @@ VuoLayer VuoLayer_makeRadialGradient(VuoText name, VuoList_VuoColor colors, VuoP
 VuoLayer VuoLayer_makeGroup(VuoList_VuoLayer childLayers, VuoTransform2d transform)
 {
 	VuoLayer o;
-	o.sceneObject = VuoSceneObject_makeEmpty();
-	o.sceneObject.transform = VuoTransform_makeFrom2d(transform);
-	o.sceneObject.childObjects = VuoListCreate_VuoSceneObject();
+	o.sceneObject = VuoSceneObject_makeGroup(VuoListCreate_VuoSceneObject(), VuoTransform_makeFrom2d(transform));
 
 	unsigned long childLayerCount = VuoListGetCount_VuoLayer(childLayers);
 	for (unsigned long i = 1; i <= childLayerCount; ++i)
@@ -394,6 +395,14 @@ static VuoRectangle VuoLayer_getBoundingRectangleWithSceneObject(VuoSceneObject 
 VuoRectangle VuoLayer_getBoundingRectangle(VuoLayer layer, VuoInteger viewportWidth, VuoInteger viewportHeight, float backingScaleFactor)
 {
 	return VuoLayer_getBoundingRectangleWithSceneObject(layer.sceneObject, viewportWidth, viewportHeight, backingScaleFactor);
+}
+
+/**
+ * Returns true if the layer or any of its children have a non-empty type.
+ */
+bool VuoLayer_isPopulated(VuoLayer layer)
+{
+	return VuoSceneObject_isPopulated(layer.sceneObject);
 }
 
 /**

@@ -2,7 +2,7 @@
  * @file
  * vuo.event.emptyList node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -11,7 +11,7 @@
 
 VuoModuleMetadata({
 					 "title" : "Block Empty List",
-					 "keywords" : [ "keep", "filter", "filled", "items", "count" ],
+					 "keywords" : [ "keep", "filter", "pass", "filled", "items", "count", "non-empty", "nonempty" ],
 					 "version" : "1.0.0",
 					 "node": {
 						  "exampleCompositions" : [ ]

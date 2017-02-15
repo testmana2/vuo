@@ -2,7 +2,7 @@
  * @file
  * VuoVideoFrame C type definition.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -50,7 +50,7 @@ void VuoVideoFrame_release(VuoVideoFrame value);
 ///@}
 
 /**
- * Returns an audio input device with the specified values.
+ * Returns a VuoVideoFrame with image and timestamp.
  */
 static inline VuoVideoFrame VuoVideoFrame_make(VuoImage image, VuoReal timestamp) __attribute__((const));
 static inline VuoVideoFrame VuoVideoFrame_make(VuoImage image, VuoReal timestamp)

@@ -2,11 +2,12 @@
  * @file
  * VuoNodeSet implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
 
+#include "VuoModule.hh"
 #include "VuoNodeSet.hh"
 
 /**
@@ -216,6 +217,7 @@ void VuoNodeSet::extractResourcesFromSubdirectory(string archiveSubdir, string d
 	extensions.insert("data");
 	extensions.insert("3ds");
 	extensions.insert("dae");
+	extensions.insert("csv");
 	set<VuoFileUtilities::File *> files = VuoFileUtilities::findFilesInArchive(archivePath, archiveSubdir, extensions);
 
 	for (set<VuoFileUtilities::File *>::iterator i = files.begin(); i != files.end(); ++i)

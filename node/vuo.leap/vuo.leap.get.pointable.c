@@ -2,7 +2,7 @@
  * @file
  * vuo.leap.get.pointable node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -36,7 +36,7 @@ void nodeEvent
 	*id = pointable.id;
 	*type = pointable.type;
 
-	VuoPoint4d quaternion = VuoTransform_quaternionFromVectors(VuoPoint3d_make(0,0,-1), pointable.direction);
+	VuoPoint4d quaternion = VuoTransform_quaternionFromVectors(VuoPoint3d_make(0,1,0), pointable.direction);
 	VuoPoint3d scale = VuoPoint3d_make(pointable.width, pointable.length, pointable.width);
 	*transform = VuoTransform_makeQuaternion(pointable.tipPosition, quaternion, scale);
 

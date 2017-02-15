@@ -2,13 +2,13 @@
  * @file
  * VuoCompilerInputData implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
 
 #include "VuoCompilerInputData.hh"
-
+#include "VuoCompilerInputDataClass.hh"
 #include "VuoPort.hh"
 
 /**
@@ -19,9 +19,6 @@ VuoCompilerInputData::VuoCompilerInputData(VuoCompilerInputDataClass *dataClass)
 {
 	setInitialValue( dataClass->getDefaultValue() );
 }
-
-
-#pragma mark Getters and setters
 
 /**
  * Sets the initial value of the port data. This is the value it has from the time that

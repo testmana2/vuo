@@ -2,7 +2,7 @@
  * @file
  * vuo.point.make.parametric.grid node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -13,14 +13,14 @@
 #include "VuoPointsParametric.h"
 
 VuoModuleMetadata({
-					 "title" : "Make Parametric Grid",
+					 "title" : "Make Parametric Grid Points",
 					 "keywords" : [ "math", "expression", "shape" ],
 					 "version" : "1.0.1",
 					 "dependencies" : [
 						 "VuoPointsParametric"
 					 ],
 					  "node": {
-						  "exampleCompositions" : [ "MakeTerrain.vuo" ]
+						  "exampleCompositions" : [ "MakeSmoothTerrain.vuo" ]
 					  }
 				 });
 

@@ -2,7 +2,7 @@
  * @file
  * VuoWindowProperty C type definition.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -24,6 +24,7 @@
 #include "VuoReal.h"
 #include "VuoScreen.h"
 #include "VuoText.h"
+#include "VuoCoordinateUnit.h"
 
 /**
  * The type of window property.
@@ -52,6 +53,7 @@ typedef struct
 	VuoBoolean fullScreen;
 	VuoScreen screen;
 
+	VuoCoordinateUnit unit;
 	VuoInteger left;
 	VuoInteger top;
 

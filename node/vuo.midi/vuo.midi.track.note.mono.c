@@ -2,7 +2,7 @@
  * @file
  * vuo.midi.track.note.mono node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -16,7 +16,7 @@ VuoModuleMetadata({
 					 "title" : "Track Single Note",
 					 "keywords" : [ "pitches", "tones", "synthesizer", "music", "instrument",
 						 "priority", "monophonic", "first", "last", "top", "bottom", "lowest", "highest",
-						 "range", "octave", "filter" ],
+						 "range", "octave", "filter", "follower" ],
 					 "version" : "1.0.0",
 					 "node": {
 						 "exampleCompositions" : [ "ReceiveMidiNotes.vuo" ]

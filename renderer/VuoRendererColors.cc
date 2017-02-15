@@ -2,19 +2,22 @@
  * @file
  * VuoRendererColors implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
 
 #include "VuoRendererColors.hh"
 
+#include "VuoReal.h"
+
 const qreal VuoRendererColors::minNodeFrameAndFillAlpha = 0.35;
 const qreal VuoRendererColors::maxNodeFrameAndFillAlpha = 1.00;
 const qreal VuoRendererColors::defaultNodeFrameAndFillAlpha = .85;
 const qreal VuoRendererColors::defaultCableMainAlpha = 0.35;
 const qreal VuoRendererColors::defaultCableUpperAlpha = 0.9;
-const qreal VuoRendererColors::defaultConstantAlpha = .6;
+const qreal VuoRendererColors::defaultConstantAlphaLightMode = 3./8.;
+const qreal VuoRendererColors::defaultConstantAlphaDarkMode = .6;
 const int VuoRendererColors::subtleHighlightingLighteningFactor = 140; // 100 means no change. @todo: Re-evaluate for https://b33p.net/kosada/node/6855 .
 const int VuoRendererColors::activityFadeDuration = 400;
 const int VuoRendererColors::activityAnimationFadeDuration = 950;
@@ -22,7 +25,8 @@ bool VuoRendererColors::_isDark = false;
 
 /**
  * Creates a new color scheme provider, optionally tinted with @c tintColor.
- * If @c selectionType is anything other than @c VuoRendererColors::noSelection, the colors are also tinted slightly blue and have their opacity increased to indicate selection.
+ * If @c selectionType is anything other than @c VuoRendererColors::noSelection or @c VuoRendererColors::sidebarSelection,
+ * the colors are also tinted slightly blue and have their opacity increased to indicate selection.
  * If @c isHovered is true, the colors are also slightly tinted dark blue to indicate potential for selection.
  * If @c highlightType is anything other than @c VuoRendererColors::noHighlight, the colors are also tinted with light blue
  * (more easily visible at a distance) to indicate potential for cable connection.
@@ -81,7 +85,7 @@ bool VuoRendererColors::isDark(void)
  */
 QColor VuoRendererColors::canvasFill(void)
 {
-	return _isDark ? QColor("#1a1a1a") : QColor::fromHslF(0, 0, 1, 1);
+	return _isDark ? QColor("#303030") : QColor::fromHslF(0, 0, 1, 1);
 }
 
 /**
@@ -114,7 +118,12 @@ QColor VuoRendererColors::portFill(void)
 	// Otherwise, use the lighter constant flag fill color.
 	else
 	{
-		qreal adjustedAlpha = getCurrentAlphaForDefault(defaultConstantAlpha);
+		// If there are to be no modifications for (the combination of) selection and highlighting,
+		// and the interface is currenty in dark-mode, use the dark-interface-mode opacity level.
+		bool useDarkFill = (_isDark && ((selectionType == VuoRendererColors::noSelection) ||
+							(highlightType == VuoRendererColors::noHighlight)));
+
+		qreal adjustedAlpha = getCurrentAlphaForDefault(useDarkFill? defaultConstantAlphaDarkMode : defaultConstantAlphaLightMode);
 		int lighteningFactor = (highlightType == VuoRendererColors::subtleHighlight? subtleHighlightingLighteningFactor : 100);
 		QColor nodeFillColor(tint(QColor::fromHslF(0, 0, 3./4., adjustedAlpha), 1., lighteningFactor));
 
@@ -127,7 +136,7 @@ QColor VuoRendererColors::portFill(void)
  */
 QColor VuoRendererColors::publishedPortFill(void)
 {
-	return nodeFill();
+	return (_isDark || (selectionType != VuoRendererColors::sidebarSelection)? nodeFill() : cableMain());
 }
 
 /**
@@ -190,7 +199,12 @@ QColor VuoRendererColors::nodeClass(void)
  */
 QColor VuoRendererColors::constantFill(void)
 {
-	qreal adjustedAlpha = getCurrentAlphaForDefault(defaultConstantAlpha);
+	// If there are to be no modifications for (the combination of) selection and highlighting,
+	// and the interface is currenty in dark-mode, use the dark-interface-mode opacity level.
+	bool useDarkFill = (_isDark && ((selectionType == VuoRendererColors::noSelection) ||
+						(highlightType == VuoRendererColors::noHighlight)));
+
+	qreal adjustedAlpha = getCurrentAlphaForDefault(useDarkFill? defaultConstantAlphaDarkMode : defaultConstantAlphaLightMode);
 	int lighteningFactor = (highlightType == VuoRendererColors::subtleHighlight? subtleHighlightingLighteningFactor : 100);
 	QColor color = tint(QColor::fromHslF(0, 0, _isDark ? .35 : .75, adjustedAlpha), 1., lighteningFactor);
 
@@ -336,18 +350,37 @@ QColor VuoRendererColors::tint(QColor color, qreal amount, int lighteningFactor)
 	color.getHslF(&h,&s,&l,&a);
 
 	qreal hs = 0;
+	qreal saturationAmount = 1;
 	if (tintColor == VuoNode::TintYellow)
-		hs = 45./360.;
+	{
+		hs = 50./360.;
+		saturationAmount = 1.4;
+	}
+	else if (tintColor == VuoNode::TintTangerine)
+	{
+		hs = 35./360.;
+		saturationAmount = 1.3;
+	}
 	else if (tintColor == VuoNode::TintOrange)
-		hs = 15./360.;
+	{
+		hs = 20./360.;
+		saturationAmount = 1.2;
+	}
 	else if (tintColor == VuoNode::TintMagenta)
 		hs = 315./360.;
 	else if (tintColor == VuoNode::TintViolet)
 		hs = 255./360.;
+	else if (tintColor == VuoNode::TintBlue)
+		hs = 220./360.;
 	else if (tintColor == VuoNode::TintCyan)
 		hs = 175./360.;
 	else if (tintColor == VuoNode::TintGreen)
-		hs = 90./360.;
+		hs = 100./360.;
+	else if (tintColor == VuoNode::TintLime)
+	{
+		hs = 70./360.;
+		saturationAmount = 1.3;
+	}
 
 	if (tintColor != VuoNode::TintNone)
 	{
@@ -357,10 +390,10 @@ QColor VuoRendererColors::tint(QColor color, qreal amount, int lighteningFactor)
 		else
 			h = hs;
 
-		s = s + (1. - s) * 3./8. * amount;
+		s = s + (1. - s) * 3./8. * amount * saturationAmount;
 	}
 
-	color = QColor::fromHslF(h,s,l,a);
+	color = QColor::fromHslF(h, VuoReal_clamp(s,0,1), l, a);
 
 	bool isHighlighted = (highlightType != VuoRendererColors::noHighlight);
 	if (isHighlighted)
@@ -372,7 +405,7 @@ QColor VuoRendererColors::tint(QColor color, qreal amount, int lighteningFactor)
 		color = _isDark ? color.darker(lighteningFactor) : color.lighter(lighteningFactor);
 	}
 
-	bool isSelected = (selectionType != VuoRendererColors::noSelection);
+	bool isSelected = (selectionType != VuoRendererColors::noSelection && selectionType != VuoRendererColors::sidebarSelection);
 	bool isDirectlySelected = (selectionType == VuoRendererColors::directSelection);
 	if (isSelected || isHovered)
 	{
@@ -484,4 +517,14 @@ qreal VuoRendererColors::getMaxAlphaForDefault(qreal defaultAlpha)
 {
 	qreal primaryAlphaMaxToDefaultRatio = maxNodeFrameAndFillAlpha/defaultNodeFrameAndFillAlpha;
 	return fmin(1.0, primaryAlphaMaxToDefaultRatio*defaultAlpha);
+}
+
+/**
+ * Returns the tint to be used for the heading of an active protocol, given the
+ * index of the protocol within the sidebar.
+ */
+VuoNode::TintColor VuoRendererColors::getActiveProtocolTint(int protocolIndex)
+{
+	// @todo: Account for multiple simultaneous active protocols. https://b33p.net/kosada/node/9585
+	return VuoNode::TintGreen;
 }

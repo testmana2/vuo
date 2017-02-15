@@ -10,7 +10,7 @@ QMAKE_CXXFLAGS += $$FLAGS32
 QMAKE_LFLAGS += $$FLAGS32
 
 ZMQ32_ROOT = /usr/local/Cellar/zeromq/2.2.0-32
-JSONC32_ROOT = /usr/local/Cellar/json-c/0.10-32
+JSONC32_ROOT = /usr/local/Cellar/json-c/0.12-32
 
 DEFINES += ZMQ
 INCLUDEPATH += \
@@ -45,8 +45,10 @@ SOURCES = \
 	$$ROOT/library/VuoHeap.cc
 
 OBJECTIVE_SOURCES += \
+	$$ROOT/base/VuoFileUtilitiesCocoa.mm \
 	$$ROOT/base/VuoRunnerCocoa.mm \
-	$$ROOT/base/VuoRunnerCocoa+Conversion.mm
+	$$ROOT/base/VuoRunnerCocoa+Conversion.mm \
+	$$ROOT/runtime/VuoEventLoop.m
 
 INCLUDEPATH += \
 	../compiler \
@@ -65,11 +67,13 @@ TYPE_AND_LIBRARY_SOURCES = \
 	$$ROOT/type/VuoImage.c \
 	$$ROOT/type/VuoImageColorDepth.c \
 	$$ROOT/type/VuoInteger.c \
+	$$ROOT/type/VuoMesh.c \
 	$$ROOT/type/VuoPoint2d.c \
 	$$ROOT/type/VuoPoint3d.c \
 	$$ROOT/type/VuoReal.c \
-	$$ROOT/type/VuoShader.c \
+	$$ROOT/type/VuoShader.cc \
 	$$ROOT/type/VuoText.c \
+	$$ROOT/type/VuoTransform.c \
 	$$ROOT/type/list/VuoList_VuoBoolean.cc \
 	$$ROOT/type/list/VuoList_VuoColor.cc \
 	$$ROOT/type/list/VuoList_VuoImage.cc \
@@ -79,6 +83,7 @@ TYPE_AND_LIBRARY_SOURCES = \
 	$$ROOT/type/list/VuoList_VuoPoint3d.cc \
 	$$ROOT/type/list/VuoList_VuoReal.cc \
 	$$ROOT/type/list/VuoList_VuoText.cc \
+	$$ROOT/runtime/VuoLog.cc \
 	$$ROOT/library/VuoGlContext.cc \
 	$$ROOT/library/VuoGlPool.cc \
 	$$ROOT/library/VuoImageRenderer.cc
@@ -87,7 +92,9 @@ TYPE_AND_LIBRARY_FLAGS = \
 	-I$$ROOT/library \
 	-I$$ROOT/library/shader \
 	-I$$ROOT/node \
+	-I$$ROOT/node/vuo.data \
 	-I$$ROOT/node/vuo.font \
+	-I$$ROOT/node/vuo.ui \
 	-I$$ROOT/runtime \
 	-I$$ROOT/type \
 	-I$$ROOT/type/list \
@@ -127,7 +134,7 @@ linkVuoFramework.commands = \
 		-current_version $$VUO_VERSION \
 		-install_name @rpath/$$VUO_FRAMEWORK_BINARY_RELATIVE \
 		$$VUO_FRAMEWORK_OBJECT_FLAGS \
-		$${JSONC32_ROOT}/lib/libjson.a \
+		$${JSONC32_ROOT}/lib/libjson-c.a \
 		$${ZMQ32_ROOT}/lib/libzmq.a \
 		-framework CoreFoundation \
 		-framework OpenGL \
@@ -146,7 +153,11 @@ QMAKE_EXTRA_TARGETS += linkVuoFramework
 # Combine 32-bit dynamic library with existing 64-bit dynamic library for Vuo.framework
 VUO_FRAMEWORK_BINARY = $$ROOT/framework/$$VUO_FRAMEWORK_BINARY_RELATIVE
 lipoVuoFramework.commands = cp $$VUO_FRAMEWORK_BINARY libVuo64.dylib
-lipoVuoFramework.commands += && ( lipo -remove i386 libVuo64.dylib -output libVuo64.dylib || true )
+lipoVuoFramework.commands += && ( \
+	lipo -remove i386 libVuo64.dylib -output libVuo64.dylib \
+		2>&1 \
+		| grep -v "'^fatal error: .*must be a fat file when the -remove option is specified'" \
+	|| true )
 lipoVuoFramework.commands += && lipo -create libVuo32.dylib libVuo64.dylib -output libVuoUniversal.dylib
 lipoVuoFramework.commands += && cp libVuoUniversal.dylib $$VUO_FRAMEWORK_BINARY
 lipoVuoFramework.commands += && rm *.dylib

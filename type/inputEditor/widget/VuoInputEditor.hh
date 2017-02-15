@@ -2,7 +2,7 @@
  * @file
  * VuoInputEditor interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -12,7 +12,7 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdocumentation"
-#include "json/json.h"
+#include <json-c/json.h>
 #pragma clang diagnostic pop
 
 class VuoInputEditor;
@@ -73,11 +73,14 @@ public:
 	 *
 	 * If true, this input editor should emit tabbedPastLastWidget() and tabbedBackwardPastFirstWidget()
 	 * signals when appropriate. If false, those signals are ignored.
+	 *
+	 * Unless overridden, this function always returns false.
 	 */
 	virtual bool supportsTabbingBetweenPorts(void);
 
-protected:
-	QFont getDefaultFont(void);
+	static QFont getDefaultFont(void);
+	static QString getDefaultFontCss(void);
+
 
 signals:
 	/**

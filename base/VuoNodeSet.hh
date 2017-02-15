@@ -2,7 +2,7 @@
  * @file
  * VuoNodeSet interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -11,7 +11,8 @@
 #define VUONODESET_HH
 
 #include "VuoFileUtilities.hh"
-#include "VuoModule.hh"
+
+class VuoModule;
 
 /**
  * This class represents a node set, which is a set of node classes and supporting files

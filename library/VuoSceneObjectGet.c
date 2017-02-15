@@ -2,7 +2,7 @@
  * @file
  * VuoSceneGet implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -12,14 +12,26 @@
 #include "VuoUrlFetch.h"
 #include "VuoGlContext.h"
 #include "VuoImageGet.h"
+#include "VuoMeshUtility.h"
 
 #include <OpenGL/OpenGL.h>
 #include <OpenGL/CGLMacro.h>
 
-#include <cimport.h>
-#include <config.h>
-#include <scene.h>
-#include <postprocess.h>
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdocumentation"
+	#include <cimport.h>
+	#include <config.h>
+	#include <scene.h>
+	#include <postprocess.h>
+
+	// cfileio.h won't compile without these.
+	#ifndef DOXYGEN
+		typedef enum aiOrigin aiOrigin;
+		typedef struct aiFile aiFile;
+		typedef struct aiFileIO aiFileIO;
+	#endif
+	#include <cfileio.h>
+#pragma clang diagnostic pop
 
 #include "module.h"
 
@@ -33,16 +45,148 @@ VuoModuleMetadata({
 							"VuoShader",
 							"VuoUrlFetch",
 							"VuoList_VuoShader",
+							"VuoMeshUtility",
 							"assimp",
 							"z"
 					  ]
 				  });
 #endif
 
+
+
+/**
+ * A data buffer, and the curren read position inside it.
+ */
+typedef struct
+{
+	size_t dataLength;
+	void *data;
+	size_t position;
+} VuoSceneObjectGet_data;
+
+/**
+ * Reads bytes from VuoSceneObjectGet_data.
+ */
+static size_t VuoSceneObjectGet_read(aiFile *af, char *buffer, size_t size, size_t count)
+{
+//	VLog("	%ld (%ld * %ld)", size*count, size, count);
+	VuoSceneObjectGet_data *d = (VuoSceneObjectGet_data *)af->UserData;
+	if (d->position >= d->dataLength)
+	{
+//		VLog("	refusing to read past end");
+		return 0;
+	}
+
+	size_t bytesToRead = MIN(d->dataLength - d->position, size*count);
+	memcpy(buffer, d->data + d->position, bytesToRead);
+//	VLog("	actually read %ld", bytesToRead);
+	d->position += bytesToRead;
+	return bytesToRead;
+}
+
+/**
+ * Gives VuoSceneObjectGet_data's current position.
+ */
+static size_t VuoSceneObjectGet_tell(aiFile *af)
+{
+	VuoSceneObjectGet_data *d = (VuoSceneObjectGet_data *)af->UserData;
+//	VLog("	position = %ld", d->position);
+	return d->position;
+}
+
+/**
+ * Gives the size of VuoSceneObjectGet_data's data.
+ */
+static size_t VuoSceneObjectGet_size(aiFile *af)
+{
+	VuoSceneObjectGet_data *d = (VuoSceneObjectGet_data *)af->UserData;
+	return d->dataLength;
+}
+
+/**
+ * Moves VuoSceneObjectGet_data's position.
+ */
+static aiReturn VuoSceneObjectGet_seek(aiFile *af, size_t p, aiOrigin origin)
+{
+//	VLog("	seek by %ld (mode %d)", p, origin);
+	VuoSceneObjectGet_data *d = (VuoSceneObjectGet_data *)af->UserData;
+
+	size_t proposedPosition;
+	if (origin == aiOrigin_SET)
+		proposedPosition = p;
+	else if (origin == aiOrigin_CUR)
+		proposedPosition = d->position + p;
+	else if (origin == aiOrigin_END)
+		proposedPosition = d->dataLength - p;
+	else
+		return aiReturn_FAILURE;
+
+	if (proposedPosition >= d->dataLength)
+		return aiReturn_FAILURE;
+
+	d->position = proposedPosition;
+	return aiReturn_SUCCESS;
+}
+
+/**
+ * Reads a file into a data buffer, and provides functions for accessing it.
+ */
+static aiFile *VuoSceneObjectGet_open(aiFileIO *afio, const char *filename, const char *mode)
+{
+//	VLog("%s", filename);
+
+	if (strcmp(mode, "rb") != 0)
+	{
+		VUserLog("Error: Unknown file mode '%s'",mode);
+		return NULL;
+	}
+
+	void *data;
+	unsigned int dataLength;
+	if (!VuoUrl_fetch(filename, &data, &dataLength))
+		return NULL;
+
+	if (dataLength == 0)
+	{
+		free(data);
+		VUserLog("Warning: '%s' is empty", filename);
+		return NULL;
+	}
+
+	VuoSceneObjectGet_data *d = (VuoSceneObjectGet_data *)malloc(sizeof(VuoSceneObjectGet_data));
+	d->data = data;
+	d->dataLength = dataLength;
+	d->position = 0;
+
+	aiFile *af = (aiFile *)malloc(sizeof(aiFile));
+	af->UserData = (aiUserData)d;
+
+	af->ReadProc     = VuoSceneObjectGet_read;
+	af->TellProc     = VuoSceneObjectGet_tell;
+	af->FileSizeProc = VuoSceneObjectGet_size;
+	af->SeekProc     = VuoSceneObjectGet_seek;
+	af->WriteProc    = NULL;
+	af->FlushProc    = NULL;
+
+	return af;
+}
+
+/**
+ * Frees the data buffer.
+ */
+static void VuoSceneObjectGet_close(aiFileIO *afio, aiFile *af)
+{
+	VuoSceneObjectGet_data *d = (VuoSceneObjectGet_data *)af->UserData;
+	free(d->data);
+	free(af);
+}
+
+
+
 /**
  * Converts @c node and its children to @c VuoSceneObjects.
  */
-static void convertAINodesToVuoSceneObjectsRecursively(const struct aiScene *scene, const struct aiNode *node, VuoList_VuoShader shaders, VuoSceneObject *sceneObject)
+static void convertAINodesToVuoSceneObjectsRecursively(const struct aiScene *scene, const struct aiNode *node, VuoShader *shaders, bool *shadersUsed, VuoSceneObject *sceneObject)
 {
 	// Copy the node's transform into our VuoSceneObject.
 	{
@@ -61,12 +205,13 @@ static void convertAINodesToVuoSceneObjectsRecursively(const struct aiScene *sce
 	// Convert each mesh to a VuoSubmesh instance.
 	if (node->mNumMeshes)
 	{
+		sceneObject->type = VuoSceneObjectType_Mesh;
 		sceneObject->mesh = VuoMesh_make(node->mNumMeshes);
 
 			/// @todo Can a single aiNode use multiple aiMaterials?  If so, we need to split the aiNode into multiple VuoSceneObjects.  For now, just use the first mesh's material.
 		int materialIndex = scene->mMeshes[node->mMeshes[0]]->mMaterialIndex;
-		sceneObject->shader = VuoListGetValue_VuoShader(shaders, materialIndex+1);
-		VuoRetain(sceneObject->shader);
+		sceneObject->shader = shaders[materialIndex];
+		shadersUsed[materialIndex] = true;
 	}
 	for (unsigned int meshIndex = 0; meshIndex < node->mNumMeshes; ++meshIndex)
 	{
@@ -74,8 +219,24 @@ static void convertAINodesToVuoSceneObjectsRecursively(const struct aiScene *sce
 
 		if (!meshObj->mVertices)
 		{
-			VLog("Error: Mesh '%s' doesn't contain any positions.  Skipping.", meshObj->mName.data);
+			VUserLog("Error: Mesh '%s' doesn't contain any positions.  Skipping.", meshObj->mName.data);
 			continue;
+		}
+		char *missing = NULL;
+
+		if (!meshObj->mNormals)
+			missing = strdup("normals");
+		if (!meshObj->mTangents)
+			missing = VuoText_format("%s%s%s", missing ? missing : "", missing ? ", " : "", "tangents");
+		if (!meshObj->mBitangents)
+			missing = VuoText_format("%s%s%s", missing ? missing : "", missing ? ", " : "", "bitangents");
+		if (!meshObj->mTextureCoords[0])
+			missing = VuoText_format("%s%s%s", missing ? missing : "", missing ? ", " : "", "texture coordinates");
+
+		if (missing)
+		{
+			VUserLog("Warning: Mesh '%s' is missing %s.  These channels will be automatically generated, but lighting and 3D object filters may not work correctly.", meshObj->mName.data, missing);
+			free(missing);
 		}
 
 		VuoSubmesh sm = VuoSubmesh_make(meshObj->mNumVertices, meshObj->mNumFaces*3);
@@ -92,15 +253,15 @@ static void convertAINodesToVuoSceneObjectsRecursively(const struct aiScene *sce
 				sm.normals[vertex] = VuoPoint4d_make(normal.x, normal.y, normal.z, 0);
 			}
 
-			if (meshObj->mTangents)
+			if (meshObj->mNormals && meshObj->mTangents)
 			{
+				struct aiVector3D normal = meshObj->mNormals[vertex];
 				struct aiVector3D tangent = meshObj->mTangents[vertex];
 				sm.tangents[vertex] = VuoPoint4d_make(tangent.x, tangent.y, tangent.z, 0);
-			}
 
-			if (meshObj->mBitangents)
-			{
-				struct aiVector3D bitangent = meshObj->mBitangents[vertex];
+				VuoPoint3d n3 = VuoPoint3d_make(normal.x, normal.y, normal.z);
+				VuoPoint3d t3 = VuoPoint3d_make(tangent.x, tangent.y, tangent.z);
+				VuoPoint3d bitangent = VuoPoint3d_crossProduct(n3, t3);
 				sm.bitangents[vertex] = VuoPoint4d_make(bitangent.x, bitangent.y, bitangent.z, 0);
 			}
 
@@ -120,7 +281,7 @@ static void convertAINodesToVuoSceneObjectsRecursively(const struct aiScene *sce
 			const struct aiFace *faceObj = &meshObj->mFaces[face];
 			if (faceObj->mNumIndices != 3)
 			{
-				VLog("Warning: Face %u isn't a triangle (it has %u indices); skipping.",face,faceObj->mNumIndices);
+				VUserLog("Warning: Face %u isn't a triangle (it has %u indices); skipping.",face,faceObj->mNumIndices);
 				continue;
 			}
 
@@ -136,18 +297,35 @@ static void convertAINodesToVuoSceneObjectsRecursively(const struct aiScene *sce
 			}
 		}
 
+		// if no texture coordinates found, attempt to generate passable ones.
+		if(!meshObj->mTextureCoords[0] && sm.elementAssemblyMethod == VuoMesh_IndividualTriangles)
+		{
+			VuoMeshUtility_calculateSphericalUVs(&sm);
+		}
+
+		// if mesh doesn't have tangents, but does have normals and textures, we can generate tangents & bitangents.
+		if(!meshObj->mTangents && meshObj->mNormals && sm.elementAssemblyMethod == VuoMesh_IndividualTriangles)
+		{
+			VuoMeshUtility_calculateTangents(&sm);
+		}
+
 		sceneObject->mesh->submeshes[meshIndex] = sm;
 	}
 
 	VuoMesh_upload(sceneObject->mesh);
 
 	if (node->mNumChildren)
+	{
 		sceneObject->childObjects = VuoListCreate_VuoSceneObject();
+		if (sceneObject->type == VuoSceneObjectType_Empty)
+			sceneObject->type = VuoSceneObjectType_Group;
+	}
 	for (unsigned int child = 0; child < node->mNumChildren; ++child)
 	{
 		VuoSceneObject childSceneObject = VuoSceneObject_makeEmpty();
-		convertAINodesToVuoSceneObjectsRecursively(scene, node->mChildren[child], shaders, &childSceneObject);
-		VuoListAppendValue_VuoSceneObject(sceneObject->childObjects, childSceneObject);
+		convertAINodesToVuoSceneObjectsRecursively(scene, node->mChildren[child], shaders, shadersUsed, &childSceneObject);
+		if (childSceneObject.type != VuoSceneObjectType_Empty)
+			VuoListAppendValue_VuoSceneObject(sceneObject->childObjects, childSceneObject);
 	}
 }
 
@@ -161,16 +339,8 @@ bool VuoSceneObject_get(VuoText sceneURL, VuoSceneObject *scene, bool center, bo
 {
 	*scene = VuoSceneObject_makeEmpty();
 
-	if (!strlen(sceneURL))
+	if (!sceneURL || sceneURL[0] == 0)
 		return false;
-
-	void *data;
-	unsigned int dataLength;
-	if (!VuoUrl_fetch(sceneURL, &data, &dataLength))
-	{
-		VLog("Error: Didn't get any scene data for '%s'.", sceneURL);
-		return false;
-	}
 
 	CGLContextObj cgl_ctx = (CGLContextObj)VuoGlContext_use();
 	struct aiPropertyStore *props = aiCreatePropertyStore();
@@ -184,9 +354,12 @@ bool VuoSceneObject_get(VuoText sceneURL, VuoSceneObject *scene, bool center, bo
 		aiSetImportPropertyInteger(props, AI_CONFIG_PP_SLM_VERTEX_LIMIT, maxVertices);
 	}
 
-	const struct aiScene *ais = aiImportFileFromMemoryWithProperties(
-				data,
-				dataLength,
+	struct aiFileIO fileHandlers;
+	fileHandlers.OpenProc = VuoSceneObjectGet_open;
+	fileHandlers.CloseProc = VuoSceneObjectGet_close;
+
+	const struct aiScene *ais = aiImportFileExWithProperties(
+				sceneURL,
 				aiProcess_Triangulate
 //				| aiProcess_PreTransformVertices
 				| aiProcess_CalcTangentSpace
@@ -195,25 +368,27 @@ bool VuoSceneObject_get(VuoText sceneURL, VuoSceneObject *scene, bool center, bo
 				| aiProcess_GenUVCoords,
 //				| aiProcess_OptimizeMeshes
 //				| aiProcess_OptimizeGraph
-				"",
+				&fileHandlers,
 				props);
 	aiReleasePropertyStore(props);
 	if (!ais)
 	{
-		VLog("Error reading '%s': %s\n", sceneURL, aiGetErrorString());
+		VUserLog("Error: %s\n", aiGetErrorString());
 		return false;
 	}
 
-	VuoText normalizedSceneURL = VuoUrl_normalize(sceneURL, true);
+	if (ais->mFlags & AI_SCENE_FLAGS_INCOMPLETE)
+		VUserLog("Warning: Open Asset Import wasn't able to parse everything in this file.");
+
+	VuoText normalizedSceneURL = VuoUrl_normalize(sceneURL, false);
 	VuoRetain(normalizedSceneURL);
 	size_t lastSlashInSceneURL = VuoText_findLastOccurrence(normalizedSceneURL, "/");
 	VuoText sceneURLWithoutFilename = VuoText_substring(normalizedSceneURL, 1, lastSlashInSceneURL);
 	VuoRetain(sceneURLWithoutFilename);
 	VuoRelease(normalizedSceneURL);
 
-	VuoList_VuoShader shaders = VuoListCreate_VuoShader();
-	VuoRetain(shaders);
-
+	VuoShader shaders[ais->mNumMaterials];
+	bool shadersUsed[ais->mNumMaterials];
 	for (int i=0; i<ais->mNumMaterials; ++i)
 	{
 		struct aiMaterial *m = ais->mMaterials[i];
@@ -305,7 +480,7 @@ bool VuoSceneObject_get(VuoText sceneURL, VuoSceneObject *scene, bool center, bo
 		{
 			struct aiString path;
 			aiGetMaterialTexture(m, aiTextureType_AMBIENT, 0, &path, NULL, NULL, NULL, NULL, NULL, NULL);
-			VLog("\tambient: %s",path.data);
+			VUserLog("\tambient: %s",path.data);
 		}
 
 		int emissiveTextures = aiGetMaterialTextureCount(m, aiTextureType_EMISSIVE);
@@ -313,7 +488,7 @@ bool VuoSceneObject_get(VuoText sceneURL, VuoSceneObject *scene, bool center, bo
 		{
 			struct aiString path;
 			aiGetMaterialTexture(m, aiTextureType_EMISSIVE, 0, &path, NULL, NULL, NULL, NULL, NULL, NULL);
-			VLog("\temissive: %s",path.data);
+			VUserLog("\temissive: %s",path.data);
 		}
 
 		int opacityTextures = aiGetMaterialTextureCount(m, aiTextureType_OPACITY);
@@ -321,7 +496,7 @@ bool VuoSceneObject_get(VuoText sceneURL, VuoSceneObject *scene, bool center, bo
 		{
 			struct aiString path;
 			aiGetMaterialTexture(m, aiTextureType_OPACITY, 0, &path, NULL, NULL, NULL, NULL, NULL, NULL);
-			VLog("\topacity: %s",path.data);
+			VUserLog("\topacity: %s",path.data);
 		}
 
 		int lightmapTextures = aiGetMaterialTextureCount(m, aiTextureType_LIGHTMAP);
@@ -329,7 +504,7 @@ bool VuoSceneObject_get(VuoText sceneURL, VuoSceneObject *scene, bool center, bo
 		{
 			struct aiString path;
 			aiGetMaterialTexture(m, aiTextureType_LIGHTMAP, 0, &path, NULL, NULL, NULL, NULL, NULL, NULL);
-			VLog("\tlightmap: %s",path.data);
+			VUserLog("\tlightmap: %s",path.data);
 		}
 
 		int reflectionTextures = aiGetMaterialTextureCount(m, aiTextureType_REFLECTION);
@@ -337,7 +512,7 @@ bool VuoSceneObject_get(VuoText sceneURL, VuoSceneObject *scene, bool center, bo
 		{
 			struct aiString path;
 			aiGetMaterialTexture(m, aiTextureType_REFLECTION, 0, &path, NULL, NULL, NULL, NULL, NULL, NULL);
-			VLog("\treflection: %s",path.data);
+			VUserLog("\treflection: %s",path.data);
 		}
 
 		int displacementTextures = aiGetMaterialTextureCount(m, aiTextureType_DISPLACEMENT);
@@ -345,7 +520,7 @@ bool VuoSceneObject_get(VuoText sceneURL, VuoSceneObject *scene, bool center, bo
 		{
 			struct aiString path;
 			aiGetMaterialTexture(m, aiTextureType_DISPLACEMENT, 0, &path, NULL, NULL, NULL, NULL, NULL, NULL);
-			VLog("\tdisplacement: %s",path.data);
+			VUserLog("\tdisplacement: %s",path.data);
 		}
 
 		int heightTextures = aiGetMaterialTextureCount(m, aiTextureType_HEIGHT);
@@ -353,7 +528,7 @@ bool VuoSceneObject_get(VuoText sceneURL, VuoSceneObject *scene, bool center, bo
 		{
 			struct aiString path;
 			aiGetMaterialTexture(m, aiTextureType_HEIGHT, 0, &path, NULL, NULL, NULL, NULL, NULL, NULL);
-			VLog("\theight: %s",path.data);
+			VUserLog("\theight: %s",path.data);
 		}
 
 		int unknownTextures = aiGetMaterialTextureCount(m, aiTextureType_UNKNOWN);
@@ -361,7 +536,7 @@ bool VuoSceneObject_get(VuoText sceneURL, VuoSceneObject *scene, bool center, bo
 		{
 			struct aiString path;
 			aiGetMaterialTexture(m, aiTextureType_UNKNOWN, 0, &path, NULL, NULL, NULL, NULL, NULL, NULL);
-			VLog("\tunknown: %s",path.data);
+			VUserLog("\tunknown: %s",path.data);
 		}
 #endif
 
@@ -389,17 +564,26 @@ bool VuoSceneObject_get(VuoText sceneURL, VuoSceneObject *scene, bool center, bo
 		else
 			shader = VuoShader_makeLitColorShader(diffuseColor, specularColor, shininess);
 
-		shader->name = strdup(name.data);
+		VuoRelease(shader->name);
+		shader->name = VuoText_make(name.data);
+		VuoRetain(shader->name);
 
 		// VLog("\tshader: %s",shader->summary);//VuoShader_getSummary(shader));
 
-		VuoListAppendValue_VuoShader(shaders, shader);
+		shaders[i] = shader;
+		shadersUsed[i] = false;
 	}
 	VuoRelease(sceneURLWithoutFilename);
 	VuoGlContext_disuse(cgl_ctx);
 
-	convertAINodesToVuoSceneObjectsRecursively(ais, ais->mRootNode, shaders, scene);
-	VuoRelease(shaders);
+	convertAINodesToVuoSceneObjectsRecursively(ais, ais->mRootNode, shaders, shadersUsed, scene);
+
+	for (unsigned int i = 0; i < ais->mNumMaterials; ++i)
+		if (!shadersUsed[i])
+		{
+			VuoRetain(shaders[i]);
+			VuoRelease(shaders[i]);
+		}
 
 	if(center)
 		VuoSceneObject_center(scene);

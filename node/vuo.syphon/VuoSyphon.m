@@ -2,14 +2,14 @@
  * @file
  * VuoSyphon implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
 
 #include "module.h"
 #include "VuoImageRenderer.h"
-#include "VuoNSRunLoop.h"
+#include "VuoWindow.h"
 #include "VuoSyphon.h"
 #include "VuoSyphonListener.h"
 #include "VuoSyphonSender.h"
@@ -23,7 +23,7 @@ VuoModuleMetadata({
 						"VuoList_VuoSyphonServerDescription",
 						"VuoGlContext",
 						"VuoImageRenderer",
-						"VuoNSRunLoop",
+						"VuoWindow",
 						"VuoSyphonListener",
 						"VuoSyphonSender",
 						"Syphon.framework"
@@ -70,9 +70,9 @@ VuoList_VuoSyphonServerDescription VuoSyphon_filterServerDescriptions(VuoList_Vu
 		VuoSyphonServerDescription description = VuoListGetValue_VuoSyphonServerDescription(allDescriptions, i);
 
 		/// @todo Handle UTF8 names (add VuoText function).
-		if (strstr(description.serverUUID, partialDescription.serverUUID) != NULL &&
-				strstr(description.serverName, partialDescription.serverName) != NULL &&
-				strstr(description.applicationName, partialDescription.applicationName) != NULL)
+		if ((!partialDescription.serverUUID      || strstr(description.serverUUID,      partialDescription.serverUUID     ) != NULL) &&
+			(!partialDescription.serverName      || strstr(description.serverName,      partialDescription.serverName     ) != NULL) &&
+			(!partialDescription.applicationName || strstr(description.applicationName, partialDescription.applicationName) != NULL))
 		{
 			VuoListAppendValue_VuoSyphonServerDescription(filteredDescriptions, description);
 		}
@@ -103,7 +103,7 @@ void VuoSyphonClient_connectToServer(VuoSyphonClient syphonClient,
 									 VuoSyphonServerDescription serverDescription,
 									 VuoOutputTrigger(receivedFrame, VuoImage))
 {
-	VuoNSRunLoop_use();
+	VuoApp_init();
 	VuoSyphonListener *listener = (VuoSyphonListener *)syphonClient;
 	[listener startListeningWithServerDescription:serverDescription callback:receivedFrame];
 }
@@ -115,7 +115,6 @@ void VuoSyphonClient_disconnectFromServer(VuoSyphonClient syphonClient)
 {
 	VuoSyphonListener *listener = (VuoSyphonListener *)syphonClient;
 	[listener stopListening];
-	VuoNSRunLoop_disuse();
 }
 
 /**
@@ -142,9 +141,12 @@ void VuoSyphonServer_free(void *server);
  */
 VuoSyphonServer VuoSyphonServer_make(const char *serverName, VuoGlContext *glContext)
 {
-	VuoNSRunLoop_use();
+	if (!serverName)
+		return NULL;
+
+	VuoApp_init();
 	VuoSyphonSender *server = [[VuoSyphonSender alloc] init];
-	[server initServerWithName:[[NSString alloc] initWithUTF8String:serverName] context:glContext];
+	[server initServerWithName:[NSString stringWithUTF8String:serverName] context:glContext];
 	VuoRegister(server, VuoSyphonServer_free);
 	return (VuoSyphonServer)server;
 }
@@ -162,7 +164,10 @@ void VuoSyphonServer_publishFrame(VuoSyphonServer server, VuoImage frame)
  */
 void VuoSyphonServer_setName(VuoSyphonServer server, const char *serverName)
 {
-	[(VuoSyphonSender*)server setName:[[NSString alloc] initWithUTF8String:serverName]];
+	if (!serverName)
+		return;
+
+	[(VuoSyphonSender*)server setName:[NSString stringWithUTF8String:serverName]];
 }
 
 /**
@@ -172,6 +177,4 @@ void VuoSyphonServer_free(void *server)
 {
 	[(VuoSyphonSender*)server stop];
 	[(VuoSyphonSender*)server release];
-
-	VuoNSRunLoop_disuse();
 }

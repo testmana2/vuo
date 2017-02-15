@@ -2,7 +2,7 @@
  * @file
  * TestVuoColor implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -25,9 +25,45 @@ class TestVuoColor : public QObject
 	Q_OBJECT
 
 private slots:
-	void initTestCase()
+
+	void testStringConversion_data()
 	{
-		VuoHeap_init();
+		QTest::addColumn<QString>("initializer");
+		QTest::addColumn<VuoColor>("value");
+		QTest::addColumn<bool>("testTypeValueAsString");
+
+		VuoColor transparentBlack = VuoColor_makeWithRGBA(0,0,0,0);
+		QTest::newRow("emptystring")            << ""                                                           << transparentBlack << false;
+		QTest::newRow("transparent black")      << QUOTE({"r":0,"g":0,"b":0,"a":0})								<< transparentBlack << true;
+		QTest::newRow("transparent black text") << QUOTE("0,0,0,0")                                             << transparentBlack << false;
+		QTest::newRow("transparent black hex4") << QUOTE("#0000")                                               << transparentBlack << false;
+		QTest::newRow("transparent black hex8") << QUOTE("#00000000")                                           << transparentBlack << false;
+
+		VuoColor opaqueWhite = VuoColor_makeWithRGBA(1,1,1,1);
+		QTest::newRow("opaque white")           << QUOTE({"r":1,"g":1,"b":1,"a":1})								<< opaqueWhite      << true;
+		QTest::newRow("opaque white text3")     << QUOTE("1,1,1")                                               << opaqueWhite      << false;
+		QTest::newRow("opaque white text4")     << QUOTE("1,1,1,1")                                             << opaqueWhite      << false;
+		QTest::newRow("opaque white hex3")      << QUOTE("#fff")                                                << opaqueWhite      << false;
+		QTest::newRow("opaque white hex4")      << QUOTE("#ffff")                                               << opaqueWhite      << false;
+		QTest::newRow("opaque white hex6")      << QUOTE("#ffffff")                                             << opaqueWhite      << false;
+		QTest::newRow("opaque white hex8")      << QUOTE("#ffffffff")                                           << opaqueWhite      << false;
+
+		VuoColor transparentWhite = VuoColor_makeWithRGBA(1,1,1,0);
+		QTest::newRow("invalid white hex8")     << QUOTE("#ffffffgg")                                           << transparentWhite << false;
+
+		VuoColor aquamarine = VuoColor_makeWithRGBA(.5, 1, .75, .5);
+		QTest::newRow("aquamarine")             << QUOTE({"r":0.5,"g":1,"b":0.75,"a":0.5})						<< aquamarine       << true;
+		QTest::newRow("aquamarine text")        << QUOTE(".5,1,.75,.5")											<< aquamarine       << false;
+	}
+	void testStringConversion()
+	{
+		QFETCH(QString, initializer);
+		QFETCH(VuoColor, value);
+		QFETCH(bool, testTypeValueAsString);
+
+		QVERIFY(VuoColor_areEqual(VuoColor_makeFromString(initializer.toUtf8().constData()), value));
+		if (testTypeValueAsString)
+			QCOMPARE(VuoColor_getString(value), initializer.toUtf8().constData());
 	}
 
 	void testConversionBetweenRGBAndHSL_data()

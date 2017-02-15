@@ -2,7 +2,7 @@
  * @file
  * VuoCompilerGraphvizParser interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -10,10 +10,15 @@
 #ifndef VUOCOMPILERGRAPHVIZPARSER_H
 #define VUOCOMPILERGRAPHVIZPARSER_H
 
-#include "VuoCompilerPublishedPort.hh"
-#include "VuoCable.hh"
-
+class VuoCable;
+class VuoNode;
+class VuoNodeClass;
+class VuoPortClass;
+class VuoPublishedPort;
+class VuoType;
 class VuoCompiler;
+class VuoCompilerCable;
+class VuoCompilerPort;
 
 struct Agraph_t;
 struct Agnode_t;
@@ -33,12 +38,11 @@ private:
 	map<string, VuoNode *> nodeForName;
 	vector<VuoNode *> orderedNodes;
 	vector<VuoCable *> orderedCables;
-	vector<VuoCompilerPublishedPort *> publishedInputPorts;
-	vector<VuoCompilerPublishedPort *> publishedOutputPorts;
+	vector<VuoPublishedPort *> publishedInputPorts;
+	vector<VuoPublishedPort *> publishedOutputPorts;
 	VuoNode *publishedInputNode;
 	VuoNode *publishedOutputNode;
-	vector<VuoCable *> publishedInputCables;
-	vector<VuoCable *> publishedOutputCables;
+	map< size_t, pair< VuoCompilerCable *, pair<string, string> > > publishedCablesInProgress;
 	string name;
 	string description;
 	string copyright;
@@ -63,12 +67,8 @@ public:
 	static VuoCompilerGraphvizParser * newParserFromCompositionString(const string &composition, VuoCompiler *compiler = NULL);
 	vector<VuoNode *> getNodes(void);
 	vector<VuoCable *> getCables(void);
-	vector<VuoCompilerPublishedPort *> getPublishedInputPorts(void);
-	vector<VuoCompilerPublishedPort *> getPublishedOutputPorts(void);
-	VuoNode * getPublishedInputNode(void);
-	VuoNode * getPublishedOutputNode(void);
-	vector<VuoCable *> getPublishedInputCables(void);
-	vector<VuoCable *> getPublishedOutputCables(void);
+	vector<VuoPublishedPort *> getPublishedInputPorts(void);
+	vector<VuoPublishedPort *> getPublishedOutputPorts(void);
 	string getName(void);
 	string getDescription(void);
 	string getCopyright(void);

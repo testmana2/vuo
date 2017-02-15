@@ -2,7 +2,7 @@
  * @file
  * VuoImageColorDepth implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -61,7 +61,7 @@ unsigned int VuoImageColorDepth_getGlInternalFormat(unsigned int baseFormat, Vuo
 		return (imageColorDepth == VuoImageColorDepth_16) ? GL_LUMINANCE_ALPHA16F_ARB : GL_LUMINANCE8_ALPHA8;
 
 	char *formatString = VuoGl_stringForConstant(baseFormat);
-	VLog("Error: Unknown baseFormat %x (%s)", baseFormat, formatString);
+	VUserLog("Error: Unknown baseFormat %x (%s)", baseFormat, formatString);
 	free(formatString);
 	return GL_RGB;
 }

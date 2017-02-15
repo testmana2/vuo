@@ -2,7 +2,7 @@
  * @file
  * VuoCompilerInputEventPortClass implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -18,7 +18,6 @@
 VuoCompilerInputEventPortClass::VuoCompilerInputEventPortClass(string name, Type *type) :
 	VuoCompilerEventPortClass(name, type)
 {
-	portAction = false;
 }
 
 /**
@@ -27,7 +26,6 @@ VuoCompilerInputEventPortClass::VuoCompilerInputEventPortClass(string name, Type
 VuoCompilerInputEventPortClass::VuoCompilerInputEventPortClass(string name) :
 	VuoCompilerEventPortClass(name)
 {
-	portAction = false;
 }
 
 /**
@@ -52,20 +50,4 @@ VuoCompilerPort * VuoCompilerInputEventPortClass::newPort(VuoPort *port)
 VuoCompilerInputDataClass * VuoCompilerInputEventPortClass::getDataClass(void)
 {
 	return (VuoCompilerInputDataClass *)VuoCompilerEventPortClass::getDataClass();
-}
-
-/**
- * Sets whether this port has a port action.
- */
-void VuoCompilerInputEventPortClass::setPortAction(bool portAction)
-{
-	this->portAction = portAction;
-}
-
-/**
- * Returns true if this port has a port action (causes something special to happen when it receives an event).
- */
-bool VuoCompilerInputEventPortClass::hasPortAction(void)
-{
-	return portAction;
 }

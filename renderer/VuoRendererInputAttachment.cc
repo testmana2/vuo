@@ -2,7 +2,7 @@
  * @file
  * VuoRendererInputAttachment implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -66,7 +66,7 @@ VuoPort * VuoRendererInputAttachment::getUnderlyingHostPortForNode(VuoNode *node
 	if (outCables.size() < 1)
 		return NULL;
 
-	VuoCable *outCable = outCables[0];
+	VuoCable *outCable = *outCables.begin();
 	return outCable->getToPort();
 }
 
@@ -83,7 +83,7 @@ VuoNode * VuoRendererInputAttachment::getUnderlyingHostNodeForNode(VuoNode *node
 	if (outCables.size() < 1)
 		return NULL;
 
-	VuoCable *outCable = outCables[0];
+	VuoCable *outCable = *outCables.begin();
 	return outCable->getToNode();
 }
 

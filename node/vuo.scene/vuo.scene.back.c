@@ -2,7 +2,7 @@
  * @file
  * vuo.scene.back node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -14,7 +14,7 @@
 VuoModuleMetadata({
 					  "title" : "Show Back of 3D Object",
 					  "keywords" : [ "interior", "inside", "behind", "backface", "culling", "disappear", "transparent", "visible", "visibility",
-						  "two-sided", "two", "sided", "twosided", "2-sided", "2",
+						  "two-sided", "two", "sided", "twosided", "double-sided", "double", "doublesided", "2-sided", "2",
 						  "face", "facing", "away", "normal"],
 					  "version" : "1.0.0",
 					  "node": {

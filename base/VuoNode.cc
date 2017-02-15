@@ -2,13 +2,14 @@
  * @file
  * VuoNode implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
 
 #include "VuoNode.hh"
 
+#include "VuoNodeClass.hh"
 #include "VuoPort.hh"
 #include "VuoPortClass.hh"
 #include "VuoStringUtilities.hh"
@@ -188,16 +189,22 @@ string VuoNode::getTintColorGraphvizName(void)
 	{
 		case TintYellow:
 			return "yellow";
+		case TintTangerine:
+			return "tangerine";
 		case TintOrange:
 			return "orange";
 		case TintMagenta:
 			return "magenta";
 		case TintViolet:
 			return "violet";
+		case TintBlue:
+			return "blue";
 		case TintCyan:
 			return "cyan";
 		case TintGreen:
 			return "green";
+		case TintLime:
+			return "lime";
 		default:
 			return "";
 	}

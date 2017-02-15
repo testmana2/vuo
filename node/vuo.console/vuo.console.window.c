@@ -2,7 +2,7 @@
  * @file
  * vuo.console.window node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -17,7 +17,7 @@
 
 VuoModuleMetadata({
 					 "title" : "Display Console Window",
-					 "keywords" : [ "text", "string", "print", "log", "write", "read", "input", "output", "type", "line", "word", "character" ],
+					 "keywords" : [ "text", "string", "print", "log", "write", "read", "input", "output", "type", "line", "word", "character", "debug", "troubleshoot" ],
 					 "version" : "1.0.1",
 					 "dependencies" : [
 						 "VuoWindow"
@@ -78,5 +78,6 @@ void nodeInstanceFini
 		VuoInstanceData(struct nodeInstanceData *) context
 )
 {
+	VuoWindowText_close((*context)->window);
 	VuoRelease((*context)->window);
 }

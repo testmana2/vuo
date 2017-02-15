@@ -2,7 +2,7 @@
  * @file
  * vuo.scene.explode node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -90,7 +90,7 @@ static const char *vertexShaderSource = VUOSHADER_GLSL_SOURCE(120,
 );
 
 static const char *geometryShaderSource = VUOSHADER_GLSL_SOURCE(120,
-	include(noise3D)
+	include(VuoGlslRandom)
 
 	// Inputs
 	uniform mat4 modelviewMatrix;
@@ -167,7 +167,7 @@ static const char *geometryShaderSource = VUOSHADER_GLSL_SOURCE(120,
 
 
 		vec3 triangleCenter = (positionInScene[0]+positionInScene[1]+positionInScene[2])/3;
-		vec3 triangleNoise = snoise3D3D(triangleCenter*1000);
+		vec3 triangleNoise = VuoGlsl_random3D3D(triangleCenter) * 2. - 1.;
 		vec3 triangleChaos = triangleNoise * chaos;
 		float distanceFromEpicenter = distance(triangleCenter + triangleChaos/10, center);
 

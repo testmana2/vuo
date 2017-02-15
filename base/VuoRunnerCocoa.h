@@ -2,7 +2,7 @@
  * @file
  * VuoCocoa header.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -26,6 +26,9 @@
 #define VuoCompiler void
 #define VuoComposition void
 #define VuoProtocol void
+struct _VuoImage;
+typedef struct _VuoImage * VuoImage;
+typedef struct json_object json_object;
 /// @}
 
 /**
@@ -45,6 +48,8 @@
 	VuoComposition *composition;
 	NSURL *compositionURL;
 	NSString *compositionString;
+	NSString *compositionSourcePath;
+	NSString *compositionProcessName;
 	NSString *compositionName;
 	NSString *compositionDescription;
 	NSString *compositionCopyright;
@@ -74,6 +79,7 @@
 @property (readonly) NSString *compositionCopyright;
 
 + (void)setGlobalRootContext:(CGLContextObj)context;
++ (void)prepareForFastBuild;
 
 - (NSArray *)inputPorts;
 - (NSArray *)outputPorts;
@@ -81,9 +87,11 @@
 - (id)propertyListFromInputValues;
 - (BOOL)setInputValuesWithPropertyList:(id)propertyList;
 - (BOOL)setValue:(id)value forInputPort:(NSString *)portName;
+- (BOOL)setJSONValue:(json_object *)value forInputPort:(NSString *)portName;
 
 - (id)valueForOutputPort:(NSString *)portName;
 - (GLuint)glTextureWithTarget:(GLuint)target forOutputPort:(NSString *)portName outputPixelsWide:(NSUInteger *)outputPixelsWide pixelsHigh:(NSUInteger *)outputPixelsHigh;
+- (GLuint)glTextureFromProvider:(GLuint (^)(NSUInteger pixelsWide, NSUInteger pixelsHigh))provider forOutputPort:(NSString *)portName outputPixelsWide:(NSUInteger *)outputPixelsWide pixelsHigh:(NSUInteger *)outputPixelsHigh ioSurface:(IOSurfaceRef *)outputIOSurface;
 @end
 
 /**
@@ -91,9 +99,12 @@
  */
 @interface VuoImageFilter : VuoRunnerCocoa
 + (BOOL)canOpenComposition:(NSURL *)compositionURL;
++ (BOOL)canOpenCompositionString:(NSString *)compositionString;
 - (id)initWithComposition:(NSURL *)compositionURL;
+- (id)initWithCompositionString:(NSString *)compositionString name:(NSString *)name sourcePath:(NSString *)sourcePath;
 - (NSImage *)filterNSImage:(NSImage *)image atTime:(NSTimeInterval)time;
 - (GLuint)filterGLTexture:(GLuint)textureName target:(GLuint)target pixelsWide:(NSUInteger)pixelsWide pixelsHigh:(NSUInteger)pixelsHigh atTime:(NSTimeInterval)time outputPixelsWide:(NSUInteger *)outputPixelsWide pixelsHigh:(NSUInteger *)outputPixelsHigh;
+- (GLuint)filterGLTexture:(GLuint)textureName target:(GLuint)target pixelsWide:(NSUInteger)pixelsWide pixelsHigh:(NSUInteger)pixelsHigh atTime:(NSTimeInterval)time withTextureProvider:(GLuint (^)(NSUInteger pixelsWide, NSUInteger pixelsHigh))provider outputPixelsWide:(NSUInteger *)outputPixelsWide pixelsHigh:(NSUInteger *)outputPixelsHigh ioSurface:(IOSurfaceRef *)outputIOSurface;
 @end
 
 /**
@@ -101,9 +112,13 @@
  */
 @interface VuoImageGenerator : VuoRunnerCocoa
 + (BOOL)canOpenComposition:(NSURL *)compositionURL;
++ (BOOL)canOpenCompositionString:(NSString *)compositionString;
 - (id)initWithComposition:(NSURL *)compositionURL;
+- (id)initWithCompositionString:(NSString *)compositionString name:(NSString *)name sourcePath:(NSString *)sourcePath;
 - (NSImage *)generateNSImageWithSuggestedPixelsWide:(NSUInteger)suggestedPixelsWide pixelsHigh:(NSUInteger)suggestedPixelsHigh atTime:(NSTimeInterval)time;
 - (GLuint)generateGLTextureWithTarget:(GLuint)target suggestedPixelsWide:(NSUInteger)suggestedPixelsWide pixelsHigh:(NSUInteger)suggestedPixelsHigh atTime:(NSTimeInterval)time outputPixelsWide:(NSUInteger *)outputPixelsWide pixelsHigh:(NSUInteger *)outputPixelsHigh;
+- (GLuint)generateGLTextureWithProvider:(GLuint (^)(NSUInteger pixelsWide, NSUInteger pixelsHigh))provider suggestedPixelsWide:(NSUInteger)pixelsWide pixelsHigh:(NSUInteger)pixelsHigh atTime:(NSTimeInterval)time outputPixelsWide:(NSUInteger *)outputPixelsWide pixelsHigh:(NSUInteger *)outputPixelsHigh ioSurface:(IOSurfaceRef *)outputIOSurface;
+- (VuoImage)generateVuoImageWithSuggestedPixelsWide:(NSUInteger)suggestedPixelsWide pixelsHigh:(NSUInteger)suggestedPixelsHigh atTime:(NSTimeInterval)time;
 @end
 
 #undef VuoRunner

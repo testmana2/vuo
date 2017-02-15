@@ -2,7 +2,7 @@
  * @file
  * vuo.motion.wave node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -13,10 +13,12 @@
 
 VuoModuleMetadata({
 					 "title" : "Wave",
-					 "keywords" : [ "sine", "cosine", "sawtooth", "triangle", "phase accumulator", "oscillator", "frequency", "period", "LFO", "VCO", "DCO", "NCO" ],
+					 "keywords" : [ "sine", "cosine", "sawtooth", "triangle", "phase accumulator", "oscillator", "frequency", "period", "VCO", "DCO", "NCO",
+						 /* QC */ "LFO", "Wave Generator"
+					 ],
 					 "version" : "2.0.0",
 					 "node": {
-						 "exampleCompositions" : [ "WaveSphere.vuo" ]
+						 "exampleCompositions" : [ "WaveCircle.vuo", "OffsetOscillations.vuo" ]
 					 }
 				 });
 
@@ -46,6 +48,7 @@ void nodeInstanceEvent
 	VuoInputEvent({"eventBlocking":"wall","data":"period"}) periodEvent,
 	VuoInputData(VuoReal, {"default":0.0}) center,
 	VuoInputData(VuoReal, {"default":1.0}) amplitude,
+	VuoInputData(VuoReal, {"default":0.0,"suggestedMin":0,"suggestedMax":1}) phase,
 	VuoOutputData(VuoReal) value,
 	VuoInstanceData(struct phaseAccumulator *) data
 )
@@ -98,17 +101,18 @@ void nodeInstanceEvent
 	(*data)->priorWave = wave;
 
 	// Calculate the output value.
+	VuoReal thisPhase = fmod((*data)->phase + phase, 1);
 	if (wave == VuoWave_Sine)
-		*value = -cos((*data)->phase * 2. * M_PI);
+		*value = -cos(thisPhase * 2. * M_PI);
 	else if (wave == VuoWave_Triangle)
 	{
-		if ((*data)->phase < 0.5)
-			*value = (*data)->phase * 4. - 1.;
+		if (thisPhase < 0.5)
+			*value = thisPhase * 4. - 1.;
 		else
-			*value = (*data)->phase * -4. + 3.;
+			*value = thisPhase * -4. + 3.;
 	}
 	else if (wave == VuoWave_Sawtooth)
-		*value = (*data)->phase * 2. - 1.;
+		*value = thisPhase * 2. - 1.;
 
 	*value *= amplitude;
 	*value += center;

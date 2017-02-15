@@ -2,7 +2,7 @@
  * @file
  * vuo.math.areEqual node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -12,7 +12,7 @@
 VuoModuleMetadata({
 					  "title" : "Are Equal",
 					  "keywords" : [ "==", "same", "identical", "equivalent", "match", "compare", "approximate", "tolerance", "conditional" ],
-					  "version" : "2.0.0",
+					  "version" : "2.0.1",
 					  "genericTypes" : {
 						  "VuoGenericType1" : {
 							  "defaultType" : "VuoReal",
@@ -27,7 +27,7 @@ VuoModuleMetadata({
 void nodeEvent
 (
 		VuoInputData(VuoList_VuoGenericType1) values,
-		VuoInputData(VuoGenericType1, {"defaults":{"VuoInteger":0, "VuoReal":0.01}}) tolerance,
+		VuoInputData(VuoGenericType1, {"defaults":{"VuoInteger":0, "VuoReal":0.00001}}) tolerance,
 		VuoOutputData(VuoBoolean) equal
 )
 {

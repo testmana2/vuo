@@ -2,14 +2,15 @@
  * @file
  * vuo.video.decodeImage node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
 
 #include "node.h"
-#include "VuoMovie.h"
+#include "VuoVideo.h"
 #include "VuoVideoFrame.h"
+#include "VuoVideoOptimization.h"
 
 VuoModuleMetadata({
 					  "title" : "Decode Movie Image",
@@ -23,36 +24,37 @@ VuoModuleMetadata({
 						  "quicktime", "qt", "aic", "prores",
 						  "video",
 					  ],
-					  "version" : "2.0.0",
+					  "version" : "2.0.2",
 					  "node": {
 						  "isInterface" : true,
 						  "exampleCompositions" : [ "SkimMovie.vuo" ]
 					  },
 					  "dependencies" : [
-						"VuoMovie"
+						"VuoVideo",
+						"VuoUrl",
+						"VuoFfmpegDecoder"
 					  ]
 				  });
 
 
 struct nodeInstanceData
 {
-	VuoMovie movie;
+	VuoVideo player;
 	VuoReal duration;
 };
 
-static void setMovie(struct nodeInstanceData *context, const char *movieURL)
+static void setMovie(struct nodeInstanceData *context, VuoText url)
 {
-	VuoMovie newMovie = VuoMovie_make(movieURL);
+	if(context->player != NULL)
+		VuoRelease(context->player);
 
-	// If VuoMovie_make fails to initialize properly, it cleans up after itself.
-	// No need to call VuoMovie_free()
-	if(newMovie == NULL)
-		return;
+	context->player = VuoVideo_make(url, VuoVideoOptimization_Random);
 
-	VuoRetain(newMovie);
-	VuoRelease(context->movie);
-	context->movie = newMovie;
-	context->duration = VuoMovie_getDuration(context->movie);
+	if(context->player != NULL)
+	{
+		VuoRetain(context->player);
+		context->duration = VuoVideo_getDuration(context->player);
+	}
 }
 
 struct nodeInstanceData * nodeInstanceInit
@@ -64,10 +66,8 @@ struct nodeInstanceData * nodeInstanceInit
 	struct nodeInstanceData *context = (struct nodeInstanceData *)calloc(1,sizeof(struct nodeInstanceData));
 	VuoRegister(context, free);
 
+	context->player = NULL;
 	setMovie(context, url);
-
-	if(context->movie != NULL)
-		VuoMovie_seekToSecond(context->movie, frameTime);
 
 	return context;
 }
@@ -86,19 +86,8 @@ void nodeInstanceEvent
 		setMovie((*context), url);
 	}
 
-	if((*context)->movie != NULL)
-	{
-		VuoMovie_seekToSecond((*context)->movie, frameTime);
-		double nextFrameTime;
-		VuoImage img;
-
-		// will fail if frameTime is out of bounds
-		if( VuoMovie_getNextVideoFrame((*context)->movie, &img, &nextFrameTime) )
-		{
-			// getCurrentSecond() because it may not be the same as frameTime.
-			*videoFrame = (VuoVideoFrame){ img, VuoMovie_getCurrentSecond((*context)->movie) };
-		}
-	}
+	if((*context)->player != NULL)
+		VuoVideo_getFrameAtSecond((*context)->player, frameTime, videoFrame);
 }
 
 void nodeInstanceFini
@@ -106,5 +95,6 @@ void nodeInstanceFini
 		VuoInstanceData(struct nodeInstanceData *) context
 )
 {
-	VuoRelease((*context)->movie);
+	if((*context)->player != NULL)
+		VuoRelease((*context)->player);
 }

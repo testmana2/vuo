@@ -2,7 +2,7 @@
  * @file
  * vuo.window.resizable node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -12,7 +12,7 @@
 
 VuoModuleMetadata({
 					 "title" : "Change Resizable Status",
-					 "keywords" : [ "resize", "scale", "stretch", "fill", "tile", "shrink", "blow up", "enlarge", "magnify", "lock", "fixed", "size", "properties" ],
+					 "keywords" : [ "resize", "scale", "stretch", "fill", "tile", "shrink", "blow up", "enlarge", "magnify", "lock", "fixed", "size", "properties", "set" ],
 					 "version" : "1.0.0",
 					 "node" : {
 						  "exampleCompositions" : [ ]

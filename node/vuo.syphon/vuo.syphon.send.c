@@ -2,7 +2,7 @@
  * @file
  * vuo.syphon.send node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -46,7 +46,7 @@ static void updateServer(struct nodeInstanceData *context, VuoText newServerName
 
 struct nodeInstanceData * nodeInstanceInit
 (
-		VuoInputData(VuoText, "") serverName
+		VuoInputData(VuoText) serverName
 )
 {
 	struct nodeInstanceData *context = (struct nodeInstanceData *)calloc(1,sizeof(struct nodeInstanceData));
@@ -57,12 +57,15 @@ struct nodeInstanceData * nodeInstanceInit
 	context->syphonServer = VuoSyphonServer_make(serverName, context->glContext);
 	VuoRetain(context->syphonServer);
 
+	context->serverName = serverName;
+	VuoRetain(context->serverName);
+
 	return context;
 }
 
 void nodeInstanceEvent
 (
-		VuoInputData(VuoText, "") serverName,
+		VuoInputData(VuoText) serverName,
 		VuoInputData(VuoImage) sendImage,
 		VuoInputEvent({"eventBlocking":"none","data":"sendImage"}) sendImageEvent,
 		VuoInstanceData(struct nodeInstanceData *) context

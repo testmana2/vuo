@@ -2,7 +2,7 @@
  * @file
  * Vuo prefix header.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -22,7 +22,7 @@
 #ifdef VUO_CLANG_32_OR_LATER
 	#pragma clang diagnostic ignored "-Wdocumentation"
 #endif
-#include "json/json.h"
+#include "json-c/json.h"
 #pragma clang diagnostic pop
 
 #include "zmq/zmq.h"

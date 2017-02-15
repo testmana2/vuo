@@ -2,7 +2,7 @@
  * @file
  * VuoUrlFetch implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -57,7 +57,7 @@ static size_t VuoUrl_curlCallback(void *contents, size_t size, size_t nmemb, voi
 	mem->memory = (char *)realloc(mem->memory, mem->size + realsize + 1);
 	if(mem->memory == NULL)
 	{
-		VLog("Error: realloc() returned NULL (out of memory?).");
+		VUserLog("Error: realloc() returned NULL (out of memory?).");
 		return 0;
 	}
 
@@ -71,11 +71,16 @@ static size_t VuoUrl_curlCallback(void *contents, size_t size, size_t nmemb, voi
 /**
  * Receives the data at the specified @c url.
  *
+ * The caller is responsible for `free()`ing the data.
+ *
  * @return true upon success, false upon failure.
  * @todo Better error handling per https://b33p.net/kosada/node/4724
  */
 bool VuoUrl_fetch(const char *url, void **data, unsigned int *dataLength)
 {
+	if (!url || url[0] == 0)
+		return false;
+
 	struct VuoUrl_curlBuffer buffer = {NULL, 0};
 	CURL *curl;
 	CURLcode res;
@@ -83,16 +88,15 @@ bool VuoUrl_fetch(const char *url, void **data, unsigned int *dataLength)
 	curl = curl_easy_init();
 	if (!curl)
 	{
-		VLog("Error: cURL initialization failed.");
+		VUserLog("Error: cURL initialization failed.");
 		return false;
 	}
 
 	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);  // Don't use signals for the timeout logic, since they're not thread-safe.
 
-	VuoText resolvedUrl = VuoUrl_normalize(url, true);
+	VuoText resolvedUrl = VuoUrl_normalize(url, false);
 	VuoRetain(resolvedUrl);
 	curl_easy_setopt(curl, CURLOPT_URL, resolvedUrl);
-	VuoRelease(resolvedUrl);
 
 	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 	curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
@@ -104,11 +108,14 @@ bool VuoUrl_fetch(const char *url, void **data, unsigned int *dataLength)
 	if(res != CURLE_OK)
 	{
 		if (res == CURLE_FILE_COULDNT_READ_FILE)
-			VLog("Error: Could not read path: \"%s\"", resolvedUrl);
+			VUserLog("Error: Could not read path: \"%s\"", resolvedUrl);
 		else
-			VLog("Error: cURL request failed: %s (%d)\n", curl_easy_strerror(res), res);
+			VUserLog("Error: cURL request failed: %s (%d)\n", curl_easy_strerror(res), res);
+		VuoRelease(resolvedUrl);
+		curl_easy_cleanup(curl);
 		return false;
 	}
+	VuoRelease(resolvedUrl);
 
 	curl_easy_cleanup(curl);
 

@@ -2,7 +2,7 @@
  * @file
  * VuoDictionary_VuoText_VuoReal implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -99,32 +99,24 @@ VuoDictionary_VuoText_VuoReal VuoDictionaryCreate_VuoText_VuoReal(void)
 }
 
 /**
- * @ingroup VuoDictionary_VuoText_VuoReal
- * Returns the keys of the dictionary.
+ * Creates a dictionary consisting of the specified keys and values.
  */
-VuoList_VuoText VuoDictionaryGetKeys_VuoText_VuoReal(VuoDictionary_VuoText_VuoReal d)
+VuoDictionary_VuoText_VuoReal VuoDictionaryCreateWithLists_VuoText_VuoReal(const VuoList_VuoText keys, const VuoList_VuoReal values)
 {
-	VuoList_VuoText keysCopy = VuoListCreate_VuoText();
-
-	unsigned long count = VuoListGetCount_VuoText(d.keys);
-	for (unsigned long i = 1; i <= count; ++i)
-	{
-		VuoText key = VuoListGetValue_VuoText(d.keys, i);
-		VuoListAppendValue_VuoText(keysCopy, key);
-	}
-
-	return keysCopy;
+	return (VuoDictionary_VuoText_VuoReal){keys, values};
 }
 
 /**
  * @ingroup VuoDictionary_VuoText_VuoReal
  * Returns the value mapped from @a key in the dictionary.
+ *
+ * In order to match, `key` must use the same Unicode character compositions as the dictionary's key.
  */
 VuoReal VuoDictionaryGetValueForKey_VuoText_VuoReal(VuoDictionary_VuoText_VuoReal d, VuoText key)
 {
 	unsigned long count = VuoListGetCount_VuoText(d.keys);
 	for (unsigned long i = 1; i <= count; ++i)
-		if (VuoText_areEqual(key, VuoListGetValue_VuoText(d.keys, i)))
+		if (strcmp(key, VuoListGetValue_VuoText(d.keys, i)) == 0)
 			return VuoListGetValue_VuoReal(d.values, i);
 
 	return 0;

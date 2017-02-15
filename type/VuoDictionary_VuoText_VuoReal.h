@@ -2,7 +2,7 @@
  * @file
  * VuoDictionary_VuoText_VuoReal C type definition.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -40,7 +40,7 @@ struct json_object * VuoDictionary_VuoText_VuoReal_getJson(const VuoDictionary_V
 char * VuoDictionary_VuoText_VuoReal_getSummary(const VuoDictionary_VuoText_VuoReal value);
 
 VuoDictionary_VuoText_VuoReal VuoDictionaryCreate_VuoText_VuoReal(void);
-VuoList_VuoText VuoDictionaryGetKeys_VuoText_VuoReal(VuoDictionary_VuoText_VuoReal d);
+VuoDictionary_VuoText_VuoReal VuoDictionaryCreateWithLists_VuoText_VuoReal(const VuoList_VuoText keys, const VuoList_VuoReal values);
 VuoReal VuoDictionaryGetValueForKey_VuoText_VuoReal(VuoDictionary_VuoText_VuoReal d, VuoText key);
 void VuoDictionarySetKeyValue_VuoText_VuoReal(VuoDictionary_VuoText_VuoReal d, VuoText key, VuoReal value);
 

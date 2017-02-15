@@ -2,7 +2,7 @@
  * @file
  * TestVuoCompilerNodeClass interface and implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -10,9 +10,16 @@
 #include <fcntl.h>
 #include "TestVuoCompiler.hh"
 #include "VuoCompiler.hh"
+#include "VuoCompilerInputDataClass.hh"
+#include "VuoCompilerInputEventPortClass.hh"
 #include "VuoCompilerNode.hh"
 #include "VuoCompilerNodeClass.hh"
+#include "VuoCompilerPortClass.hh"
 #include "VuoCompilerSpecializedNodeClass.hh"
+#include "VuoCompilerTriggerPortClass.hh"
+#include "VuoCompilerType.hh"
+#include "VuoGenericType.hh"
+#include "VuoPortClass.hh"
 
 
 // Be able to use these types in QTest::addColumn()
@@ -387,11 +394,11 @@ private slots:
 			QCOMPARE(QString::fromStdString(type->getModuleKey()), expectedType);
 
 			VuoGenericType::Compatibility compatibility;
-			set<string> compatibleTypes = type->getCompatibleSpecializedTypes(compatibility);
+			vector<string> compatibleTypes = type->getCompatibleSpecializedTypes(compatibility);
 
 			QCOMPARE(compatibility, expectedCompatibility);
 
-			for (set<string>::iterator j = compatibleTypes.begin(); j != compatibleTypes.end(); ++j)
+			for (vector<string>::iterator j = compatibleTypes.begin(); j != compatibleTypes.end(); ++j)
 			{
 				string compatibleType = *j;
 				QVERIFY2(expectedCompatibleTypes.find(compatibleType) != expectedCompatibleTypes.end(), compatibleType.c_str());

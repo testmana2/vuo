@@ -2,7 +2,7 @@
  * @file
  * VuoStringUtilities implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -119,6 +119,15 @@ string VuoStringUtilities::join(vector<string> partialStrings, char delimiter)
 			wholeString += delimiter;
 	}
 	return wholeString;
+}
+
+/**
+ * Returns a string that starts with @a moduleKey and ends with @a symbolName.
+ * Useful for adding a unique prefix to a symbol name.
+ */
+string VuoStringUtilities::prefixSymbolName(string symbolName, string moduleKey)
+{
+	return transcodeToIdentifier(moduleKey) + "__" + symbolName;
 }
 
 /**
@@ -249,4 +258,21 @@ string VuoStringUtilities::expandCamelCase(string camelCaseString)
 	}
 
 	return out;
+}
+
+/**
+ * Returns a random sequence of alphanumeric characters.
+ */
+string VuoStringUtilities::makeRandomHash(int length)
+{
+	static const char alphanum[] =
+		"0123456789"
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		"abcdefghijklmnopqrstuvwxyz";
+
+	string hash(length, 0);
+	for (int i = 0; i < length; ++i)
+		hash[i] = alphanum[arc4random_uniform(sizeof(alphanum))];
+
+	return hash;
 }

@@ -2,7 +2,7 @@
  * @file
  * vuo.layer.copy node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -13,7 +13,7 @@
 VuoModuleMetadata({
 					 "title" : "Copy Layer with Transforms",
 					 "keywords" : [ "duplicate", "clone", "array", "instance", "instantiate", "populate" ],
-					 "version" : "2.0.0",
+					 "version" : "2.0.1",
 					 "node": {
 						  "exampleCompositions" : [ ]
 					 }
@@ -33,7 +33,8 @@ void nodeEvent
 	{
 		VuoLayer o;
 		o.sceneObject = layer.sceneObject;
-		o.sceneObject.transform = VuoTransform_makeFrom2d(VuoListGetValue_VuoTransform2d(transforms, i+1));
+		o.sceneObject.transform = VuoTransform_composite(o.sceneObject.transform,
+														 VuoTransform_makeFrom2d(VuoListGetValue_VuoTransform2d(transforms, i+1)));
 
 		VuoListAppendValue_VuoLayer(layers, o);
 	}

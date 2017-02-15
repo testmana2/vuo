@@ -2,7 +2,7 @@
  * @file
  * TestVuoCompilerComposition interface and implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -10,6 +10,8 @@
 #include "TestVuoCompiler.hh"
 #include "VuoCompilerComposition.hh"
 #include "VuoCompilerCable.hh"
+#include "VuoCompilerGraphvizParser.hh"
+#include "VuoCompilerPort.hh"
 #include "VuoGenericType.hh"
 #include "VuoPort.hh"
 #include <sstream>
@@ -250,9 +252,9 @@ private slots:
 				QVERIFY(genericType != NULL);
 
 				VuoGenericType::Compatibility compatibility;
-				set<string> actualCompatibleTypeNames = genericType->getCompatibleSpecializedTypes(compatibility);
+				vector<string> actualCompatibleTypeNames = genericType->getCompatibleSpecializedTypes(compatibility);
 				for (set<string>::iterator k = compatibleTypeNames.begin(); k != compatibleTypeNames.end(); ++k)
-					QVERIFY2(actualCompatibleTypeNames.find(*k) != actualCompatibleTypeNames.end(), (*k).c_str());
+					QVERIFY2(find(actualCompatibleTypeNames.begin(), actualCompatibleTypeNames.end(), *k) != actualCompatibleTypeNames.end(), (*k).c_str());
 				QCOMPARE(compatibleTypeNames.size(), actualCompatibleTypeNames.size());
 			}
 		}

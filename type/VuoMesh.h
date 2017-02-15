@@ -2,7 +2,7 @@
  * @file
  * VuoMesh C type definition.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -113,10 +113,27 @@ VuoMesh VuoMesh_make_VuoPoint3d(VuoList_VuoPoint3d positions, VuoMesh_ElementAss
 VuoMesh VuoMesh_copy(const VuoMesh mesh);
 const char *VuoMesh_cStringForElementAssemblyMethod(VuoMesh_ElementAssemblyMethod elementAssemblyMethod);
 VuoBox VuoMesh_bounds(const VuoMesh mesh, float matrix[16]);
+bool VuoMesh_isPopulated(const VuoMesh mesh);
 
 VuoMesh VuoMesh_makeFromJson(struct json_object * js);
 struct json_object * VuoMesh_getJson(const VuoMesh value);
 char * VuoMesh_getSummary(const VuoMesh value);
+
+/**
+ * For a given element assembly method, returns the equivalent assembly method for individual elements (i.e., after they've been expanded from strips/fans).
+ */
+static inline VuoMesh_ElementAssemblyMethod VuoMesh_getExpandedPrimitiveMode(const VuoMesh_ElementAssemblyMethod inputMode)
+{
+	if (inputMode == VuoMesh_IndividualTriangles
+	 || inputMode == VuoMesh_TriangleFan
+	 || inputMode == VuoMesh_TriangleStrip)
+		return VuoMesh_IndividualTriangles;
+	else if (inputMode == VuoMesh_IndividualLines
+		  || inputMode == VuoMesh_LineStrip)
+		return VuoMesh_IndividualLines;
+	else
+		return VuoMesh_Points;
+}
 
 ///@{
 /**

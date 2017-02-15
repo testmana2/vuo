@@ -2,7 +2,7 @@
  * @file
  * VuoSceneObject implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -58,10 +58,35 @@ VuoSceneObject VuoSceneObject_makeEmpty(void)
 	o.childObjects = NULL;
 
 	o.name = NULL;
-	o.transform = VuoTransform_makeFromJson(NULL);
+	o.transform = VuoTransform_makeIdentity();
 
 	o.text = NULL;
-	o.font = VuoFont_makeFromString("");
+	o.font = (VuoFont){NULL, 0, false, (VuoColor){0,0,0,0}, VuoHorizontalAlignment_Left, 0, 0};
+
+	return o;
+}
+
+/**
+ * Creates a new scene object that can contain (and transform) other scene objects, but doesn't render anything itself.
+ */
+VuoSceneObject VuoSceneObject_makeGroup(VuoList_VuoSceneObject childObjects, VuoTransform transform)
+{
+	VuoSceneObject o;
+
+	o.type = VuoSceneObjectType_Group;
+
+	o.mesh = NULL;
+	o.shader = NULL;
+	o.isRealSize = false;
+	o.blendMode = VuoBlendMode_Normal;
+
+	o.childObjects = childObjects;
+
+	o.name = NULL;
+	o.transform = transform;
+
+	o.text = NULL;
+	o.font = (VuoFont){NULL, 0, false, (VuoColor){0,0,0,0}, VuoHorizontalAlignment_Left, 0, 0};
 
 	return o;
 }
@@ -71,7 +96,7 @@ VuoSceneObject VuoSceneObject_makeEmpty(void)
  */
 VuoSceneObject VuoSceneObject_make(VuoMesh mesh, VuoShader shader, VuoTransform transform, VuoList_VuoSceneObject childObjects)
 {
-	VuoSceneObject o = VuoSceneObject_makeEmpty();
+	VuoSceneObject o;
 
 	o.type = VuoSceneObjectType_Mesh;
 
@@ -82,9 +107,17 @@ VuoSceneObject VuoSceneObject_make(VuoMesh mesh, VuoShader shader, VuoTransform 
 	else
 		o.shader = shader;
 
+	o.isRealSize = false;
+	o.blendMode = VuoBlendMode_Normal;
+
 	o.childObjects = childObjects;
 
+	o.name = NULL;
+
 	o.transform = transform;
+
+	o.text = NULL;
+	o.font = (VuoFont){NULL, 0, false, (VuoColor){0,0,0,0}, VuoHorizontalAlignment_Left, 0, 0};
 
 	return o;
 }
@@ -325,6 +358,27 @@ VuoSceneObject VuoSceneObject_makeOrthographicCamera(VuoText name, VuoTransform 
 }
 
 /**
+ * Returns a fisheye camera having the position and negative-rotation specified by @c transform (its scale is ignored).
+ */
+VuoSceneObject VuoSceneObject_makeFisheyeCamera(VuoText name, VuoTransform transform, VuoReal fieldOfView, VuoReal vignetteWidth, VuoReal vignetteSharpness)
+{
+	VuoSceneObject o = VuoSceneObject_makeEmpty();
+	o.type = VuoSceneObjectType_FisheyeCamera;
+	o.name = name;
+	o.transform = transform;
+	o.cameraFieldOfView = fieldOfView;
+
+	// 0 and 1000 come from "Realtime Dome Imaging and Interaction" by Bailey/Clothier/Gebbie 2006.
+	o.cameraDistanceMin = 0;
+	o.cameraDistanceMax = 1000;
+
+	o.cameraVignetteWidth = vignetteWidth;
+	o.cameraVignetteSharpness = vignetteSharpness;
+
+	return o;
+}
+
+/**
  * Returns a perspective camera at (0,0,1), facing along -z, 90 degree FOV, and clip planes at 0.1 and 10.0.
  */
 VuoSceneObject VuoSceneObject_makeDefaultCamera(void)
@@ -378,7 +432,7 @@ bool VuoSceneObject_find(VuoSceneObject so, VuoText nameToMatch, VuoList_VuoScen
 /**
  * Helper for @ref VuoSceneObject_apply.
  */
-VuoSceneObject VuoSceneObject_findCameraInternal(VuoSceneObject so, VuoText nameToMatch, bool *foundCamera, float modelviewMatrix[16])
+static bool VuoSceneObject_findCameraInternal(VuoSceneObject so, VuoText nameToMatch, VuoSceneObject *foundCamera, float modelviewMatrix[16])
 {
 	float localModelviewMatrix[16];
 	VuoTransform_getMatrix(so.transform, localModelviewMatrix);
@@ -387,12 +441,13 @@ VuoSceneObject VuoSceneObject_findCameraInternal(VuoSceneObject so, VuoText name
 
 	if ((so.type == VuoSceneObjectType_PerspectiveCamera
 	  || so.type == VuoSceneObjectType_StereoCamera
-	  || so.type == VuoSceneObjectType_OrthographicCamera)
-	  && strstr(so.name,nameToMatch))
+	  || so.type == VuoSceneObjectType_OrthographicCamera
+	  || so.type == VuoSceneObjectType_FisheyeCamera)
+	  && (!nameToMatch || (so.name && nameToMatch && strstr(so.name, nameToMatch))))
 	{
-		*foundCamera = true;
+		*foundCamera = so;
 		so.transform = VuoTransform_makeFromMatrix4x4(compositeModelviewMatrix);
-		return so;
+		return true;
 	}
 
 	if (so.childObjects)
@@ -401,33 +456,28 @@ VuoSceneObject VuoSceneObject_findCameraInternal(VuoSceneObject so, VuoText name
 		for (unsigned long i = 1; i <= childObjectCount; ++i)
 		{
 			VuoSceneObject childObject = VuoListGetValue_VuoSceneObject(so.childObjects, i);
-			bool foundChildCamera;
-			VuoSceneObject childCamera = VuoSceneObject_findCameraInternal(childObject, nameToMatch, &foundChildCamera, compositeModelviewMatrix);
+			VuoSceneObject childCamera;
+			bool foundChildCamera = VuoSceneObject_findCameraInternal(childObject, nameToMatch, &childCamera, compositeModelviewMatrix);
 			if (foundChildCamera)
 			{
-				*foundCamera = true;
-				return childCamera;
-			}
-			else
-			{
-				VuoSceneObject_retain(childCamera);
-				VuoSceneObject_release(childCamera);
+				*foundCamera = childCamera;
+				return true;
 			}
 		}
 	}
 
-	*foundCamera = false;
-	return VuoSceneObject_makeDefaultCamera();
+	return false;
 }
 
 /**
  * Performs a depth-first search of the scenegraph.
- * Returns the first camera whose name contains @c nameToMatch (or, if @c nameToMatch is emptystring, just returns the first camera),
+ *
+ * Returns (via `foundCamera`) the first camera whose name contains `nameToMatch` (or, if `nameToMatch` is emptystring or NULL, just returns the first camera),
  * with its transform altered to incorporate the transforms of its ancestor objects.
- * Output paramater @c foundCamera indicates whether a camera was found.
- * If no camera was found, returns VuoSceneObject_makeDefaultCamera().
+ * The returned boolean indicates whether a camera was found.
+ * If no camera was found, `foundCamera` is unaltered.
  */
-VuoSceneObject VuoSceneObject_findCamera(VuoSceneObject so, VuoText nameToMatch, bool *foundCamera)
+bool VuoSceneObject_findCamera(VuoSceneObject so, VuoText nameToMatch, VuoSceneObject *foundCamera)
 {
 	float localModelviewMatrix[16];
 	VuoTransform_getMatrix(VuoTransform_makeIdentity(), localModelviewMatrix);
@@ -436,9 +486,33 @@ VuoSceneObject VuoSceneObject_findCamera(VuoSceneObject so, VuoText nameToMatch,
 }
 
 /**
+ * Performs a depth-first search of the scenegraph.
+ *
+ * Returns true if the scene object or any of its children have a non-empty type.
+ */
+bool VuoSceneObject_isPopulated(VuoSceneObject so)
+{
+	if (so.type != VuoSceneObjectType_Empty)
+		return true;
+
+	if (so.childObjects)
+	{
+		unsigned long childObjectCount = VuoListGetCount_VuoSceneObject(so.childObjects);
+		for (unsigned long i = 1; i <= childObjectCount; ++i)
+		{
+			VuoSceneObject childObject = VuoListGetValue_VuoSceneObject(so.childObjects, i);
+			if (VuoSceneObject_isPopulated(childObject))
+				return true;
+		}
+	}
+
+	return false;
+}
+
+/**
  * Returns the `VuoSceneObjectType` corresponding with the `typeString`.  If none matches, returns VuoSceneObjectType_Empty.
  */
-VuoSceneObjectType VuoSceneObject_typeFromCString(const char *typeString)
+static VuoSceneObjectType VuoSceneObject_typeFromCString(const char *typeString)
 {
 	if (strcmp(typeString,"empty")==0)
 		return VuoSceneObjectType_Empty;
@@ -452,6 +526,8 @@ VuoSceneObjectType VuoSceneObject_typeFromCString(const char *typeString)
 		return VuoSceneObjectType_StereoCamera;
 	else if (strcmp(typeString,"camera-orthographic")==0)
 		return VuoSceneObjectType_OrthographicCamera;
+	else if (strcmp(typeString,"camera-fisheye")==0)
+		return VuoSceneObjectType_FisheyeCamera;
 	else if (strcmp(typeString,"light-ambient")==0)
 		return VuoSceneObjectType_AmbientLight;
 	else if (strcmp(typeString,"light-point")==0)
@@ -467,7 +543,7 @@ VuoSceneObjectType VuoSceneObject_typeFromCString(const char *typeString)
 /**
  * Returns a string constant representing `type`.
  */
-const char * VuoSceneObject_cStringForType(VuoSceneObjectType type)
+static const char * VuoSceneObject_cStringForType(VuoSceneObjectType type)
 {
 	switch (type)
 	{
@@ -483,6 +559,8 @@ const char * VuoSceneObject_cStringForType(VuoSceneObjectType type)
 			return "camera-stereo";
 		case VuoSceneObjectType_OrthographicCamera:
 			return "camera-orthographic";
+		case VuoSceneObjectType_FisheyeCamera:
+			return "camera-fisheye";
 		case VuoSceneObjectType_AmbientLight:
 			return "light-ambient";
 		case VuoSceneObjectType_PointLight:
@@ -675,7 +753,7 @@ void VuoSceneObject_visit(const VuoSceneObject object, void (^function)(const Vu
 /**
  * Helper for @ref VuoSceneObject_apply.
  */
-void VuoSceneObject_applyInternal(VuoSceneObject *object, void (^function)(VuoSceneObject *currentObject, float modelviewMatrix[16]), float modelviewMatrix[16])
+static void VuoSceneObject_applyInternal(VuoSceneObject *object, void (^function)(VuoSceneObject *currentObject, float modelviewMatrix[16]), float modelviewMatrix[16])
 {
 	float localModelviewMatrix[16];
 	VuoTransform_getMatrix(object->transform, localModelviewMatrix);
@@ -777,7 +855,7 @@ VuoSceneObject VuoSceneObject_copy(const VuoSceneObject object)
 /**
  * Returns the bounds of a sceneobject including its children.
  */
-bool VuoSceneObject_boundsRecursive(const VuoSceneObject so, VuoBox *bounds, float matrix[16])
+static bool VuoSceneObject_boundsRecursive(const VuoSceneObject so, VuoBox *bounds, float matrix[16])
 {
 	// matrix parameter is the trickle down transformations
 	float localModelviewMatrix[16];
@@ -845,9 +923,12 @@ bool VuoSceneObject_meshBounds(const VuoSceneObject so, VuoBox *bounds, float ma
 	{
 		*bounds = VuoMesh_bounds(so.mesh, matrix);
 
-		bounds->size.x *= so.shader->objectScale;
-		bounds->size.y *= so.shader->objectScale;
-		bounds->size.z *= so.shader->objectScale;
+		if (so.shader)
+		{
+			bounds->size.x *= so.shader->objectScale;
+			bounds->size.y *= so.shader->objectScale;
+			bounds->size.z *= so.shader->objectScale;
+		}
 	}
 
 	return true;
@@ -955,6 +1036,14 @@ VuoSceneObject VuoSceneObject_makeFromJson(json_object *js)
 	if (json_object_object_get_ex(js, "cameraIntraocularDistance", &o))
 		cameraIntraocularDistance = json_object_get_double(o);
 
+	float cameraVignetteWidth;
+	if (json_object_object_get_ex(js, "cameraVignetteWidth", &o))
+		cameraVignetteWidth = json_object_get_double(o);
+
+	float cameraVignetteSharpness;
+	if (json_object_object_get_ex(js, "cameraVignetteSharpness", &o))
+		cameraVignetteSharpness = json_object_get_double(o);
+
 	VuoColor lightColor;
 	if (json_object_object_get_ex(js, "lightColor", &o))
 		lightColor = VuoColor_makeFromJson(o);
@@ -996,6 +1085,7 @@ VuoSceneObject VuoSceneObject_makeFromJson(json_object *js)
 		case VuoSceneObjectType_Empty:
 			return VuoSceneObject_makeEmpty();
 		case VuoSceneObjectType_Group:
+			return VuoSceneObject_makeGroup(childObjects, transform);
 		case VuoSceneObjectType_Mesh:
 		{
 			VuoSceneObject o = VuoSceneObject_make(mesh, shader, transform, childObjects);
@@ -1030,6 +1120,14 @@ VuoSceneObject VuoSceneObject_makeFromJson(json_object *js)
 						cameraDistanceMin,
 						cameraDistanceMax
 						);
+		case VuoSceneObjectType_FisheyeCamera:
+			return VuoSceneObject_makeFisheyeCamera(
+						name,
+						transform,
+						cameraFieldOfView,
+						cameraVignetteWidth,
+						cameraVignetteSharpness
+						);
 		case VuoSceneObjectType_AmbientLight:
 			return VuoSceneObject_makeAmbientLight(lightColor, lightBrightness);
 		case VuoSceneObjectType_PointLight:
@@ -1037,7 +1135,11 @@ VuoSceneObject VuoSceneObject_makeFromJson(json_object *js)
 		case VuoSceneObjectType_Spotlight:
 			return VuoSceneObject_makeSpotlight(lightColor, lightBrightness, transform, lightCone, lightRange, lightSharpness);
 		case VuoSceneObjectType_Text:
-			return VuoSceneObject_makeText(text, font);
+		{
+			VuoSceneObject o = VuoSceneObject_makeText(text, font);
+			o.transform = transform;
+			return o;
+		}
 	}
 }
 
@@ -1089,11 +1191,16 @@ json_object *VuoSceneObject_getJson(const VuoSceneObject value)
 		case VuoSceneObjectType_PerspectiveCamera:
 		case VuoSceneObjectType_StereoCamera:
 		case VuoSceneObjectType_OrthographicCamera:
-			json_object_object_add(js, "cameraDistanceMin", json_object_new_double(value.cameraDistanceMin));
-			json_object_object_add(js, "cameraDistanceMax", json_object_new_double(value.cameraDistanceMax));
+		case VuoSceneObjectType_FisheyeCamera:
+			if (value.type != VuoSceneObjectType_FisheyeCamera)
+			{
+				json_object_object_add(js, "cameraDistanceMin", json_object_new_double(value.cameraDistanceMin));
+				json_object_object_add(js, "cameraDistanceMax", json_object_new_double(value.cameraDistanceMax));
+			}
 
 			if (value.type == VuoSceneObjectType_PerspectiveCamera
-			 || value.type == VuoSceneObjectType_StereoCamera)
+			 || value.type == VuoSceneObjectType_StereoCamera
+			 || value.type == VuoSceneObjectType_FisheyeCamera)
 				json_object_object_add(js, "cameraFieldOfView", json_object_new_double(value.cameraFieldOfView));
 
 			if (value.type == VuoSceneObjectType_StereoCamera)
@@ -1104,6 +1211,12 @@ json_object *VuoSceneObject_getJson(const VuoSceneObject value)
 
 			if (value.type == VuoSceneObjectType_OrthographicCamera)
 				json_object_object_add(js, "cameraWidth", json_object_new_double(value.cameraWidth));
+
+			if (value.type == VuoSceneObjectType_FisheyeCamera)
+			{
+				json_object_object_add(js, "cameraVignetteWidth", json_object_new_double(value.cameraVignetteWidth));
+				json_object_object_add(js, "cameraVignetteSharpness", json_object_new_double(value.cameraVignetteSharpness));
+			}
 
 			break;
 
@@ -1185,7 +1298,7 @@ unsigned long VuoSceneObject_getElementCount(const VuoSceneObject value)
 /**
  * Traverses the specified scenegraph and returns statistics about it.
  */
-void VuoSceneObject_getStatistics(const VuoSceneObject value, unsigned long *descendantCount, unsigned long *totalVertexCount, unsigned long *totalElementCount)
+static void VuoSceneObject_getStatistics(const VuoSceneObject value, unsigned long *descendantCount, unsigned long *totalVertexCount, unsigned long *totalElementCount)
 {
 	unsigned long childObjectCount = 0;
 	if (value.childObjects)
@@ -1201,7 +1314,7 @@ void VuoSceneObject_getStatistics(const VuoSceneObject value, unsigned long *des
 /**
  * Returns a list of all unique shader names in the sceneobject and its descendants.
  */
-VuoList_VuoText VuoSceneRenderer_findShaderNames(VuoSceneObject object)
+static VuoList_VuoText VuoSceneObject_findShaderNames(VuoSceneObject object)
 {
 	// Exploit json_object's set-containing-only-unique-items data structure.
 	__block json_object *names = json_object_new_object();
@@ -1223,11 +1336,17 @@ VuoList_VuoText VuoSceneRenderer_findShaderNames(VuoSceneObject object)
 char *VuoSceneObject_getSummary(const VuoSceneObject value)
 {
 	if (value.type == VuoSceneObjectType_Text)
-		return VuoText_format("\"%s\"<br>%sat (%g,%g)", value.text, VuoFont_getSummary(value.font), value.transform.translation.x, value.transform.translation.y);
+	{
+		char *fontSummary = VuoFont_getSummary(value.font);
+		char *textSummary = VuoText_format("\"%s\"<br>%sat (%g,%g)", value.text, fontSummary, value.transform.translation.x, value.transform.translation.y);
+		free(fontSummary);
+		return textSummary;
+	}
 
 	if (value.type == VuoSceneObjectType_PerspectiveCamera
 	 || value.type == VuoSceneObjectType_StereoCamera
-	 || value.type == VuoSceneObjectType_OrthographicCamera)
+	 || value.type == VuoSceneObjectType_OrthographicCamera
+	 || value.type == VuoSceneObjectType_FisheyeCamera)
 	{
 		const char *type = VuoSceneObject_cStringForType(value.type);
 
@@ -1247,6 +1366,11 @@ char *VuoSceneObject_getSummary(const VuoSceneObject value)
 		{
 			cameraViewValue = value.cameraWidth;
 			cameraViewString = " unit width";
+		}
+		else if (value.type == VuoSceneObjectType_FisheyeCamera)
+		{
+			cameraViewValue = value.cameraFieldOfView;
+			cameraViewString = "° field of view (fisheye)";
 		}
 
 		char *translationString = VuoPoint3d_getSummary(value.transform.translation);
@@ -1341,7 +1465,7 @@ char *VuoSceneObject_getSummary(const VuoSceneObject value)
 	else
 		descendants = strdup("");
 
-	VuoList_VuoText shaderNames = VuoSceneRenderer_findShaderNames(value);
+	VuoList_VuoText shaderNames = VuoSceneObject_findShaderNames(value);
 	VuoRetain(shaderNames);
 	char *shaderNamesSummary;
 	if (VuoListGetCount_VuoText(shaderNames))
@@ -1386,7 +1510,10 @@ static void VuoSceneObject_dump_internal(const VuoSceneObject so, unsigned int l
 	for (unsigned int i=0; i<level; ++i)
 		fprintf(stderr, "\t");
 
-	fprintf(stderr, "object: %lu vertices, %lu elements\n", VuoSceneObject_getVertexCount(so), VuoSceneObject_getElementCount(so));
+	fprintf(stderr, "%s: ", VuoSceneObject_cStringForType(so.type));
+	if (so.type == VuoSceneObjectType_Mesh)
+		fprintf(stderr, "%lu vertices, %lu elements, shader '%s' (%p)", VuoSceneObject_getVertexCount(so), VuoSceneObject_getElementCount(so), so.shader ? so.shader->name : "", so.shader);
+	fprintf(stderr, "\n");
 
 	if (so.childObjects)
 	{

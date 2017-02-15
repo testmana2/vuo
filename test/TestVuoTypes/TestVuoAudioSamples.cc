@@ -2,7 +2,7 @@
  * @file
  * TestVuoAudioSamples implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -20,10 +20,6 @@ class TestVuoAudioSamples : public QObject
 	Q_OBJECT
 
 private slots:
-	void initTestCase()
-	{
-		VuoHeap_init();
-	}
 
 	void testSerializationAndSummary_data()
 	{
@@ -35,7 +31,7 @@ private slots:
 										<< false
 										<< "0 samples @ 0 kHz";
 
-		QTest::newRow("3 samples")		<< "{\"samples\":[-0.014525,0.015363,0.013679],\"samplesPerSecond\":44100.000000}"
+		QTest::newRow("3 samples")		<< "{\"samples\":[-0.014525,0.015363,0.013679],\"samplesPerSecond\":44100}"
 										<< true
 										<< "3 samples @ 44.1 kHz";
 	}

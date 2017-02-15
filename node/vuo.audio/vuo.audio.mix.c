@@ -2,7 +2,7 @@
  * @file
  * vuo.audio.mix node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -27,6 +27,8 @@ void nodeEvent
 	unsigned int channelCount = VuoListGetCount_VuoAudioSamples(samples);
 
 	*mixedSamples = VuoAudioSamples_alloc(VuoAudioSamples_bufferSize);
+
+	(*mixedSamples).samplesPerSecond = VuoAudioSamples_sampleRate;
 
 	for(unsigned int n = 0; n < (*mixedSamples).sampleCount; n++)
 		(*mixedSamples).samples[n] = 0.;

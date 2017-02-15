@@ -2,7 +2,7 @@
  * @file
  * VuoReal C type definition.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -182,12 +182,22 @@ static inline VuoReal VuoReal_snap(VuoReal a, VuoReal center, VuoReal snap)
 	return center + nonzeroSnap * (int)round( (a-center) / nonzeroSnap );
 }
 
+#define VuoReal_SUPPORTS_COMPARISON
+
 /**
  * Returns true if the two values are equal (within a small tolerance).
  */
 static inline bool VuoReal_areEqual(const VuoReal value1, const VuoReal value2)
 {
-	return fabs(value1 - value2) < 0.00001;
+	return fabs(value1 - value2) <= 0.00001;
+}
+
+/**
+ * Returns true if a < b.
+ */
+static inline bool VuoReal_isLessThan(const VuoReal a, const VuoReal b)
+{
+	return a < b;
 }
 
 /**

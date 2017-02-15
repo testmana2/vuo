@@ -2,7 +2,7 @@
  * @file
  * VuoAudioSamples C type definition.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -42,6 +42,7 @@ char * VuoAudioSamples_getSummary(const VuoAudioSamples value);
 VuoAudioSamples VuoAudioSamples_alloc(VuoInteger sampleCount);
 
 bool VuoAudioSamples_isEmpty(const VuoAudioSamples samples);
+bool VuoAudioSamples_isPopulated(const VuoAudioSamples samples);
 
 /**
  * Automatically generated function.

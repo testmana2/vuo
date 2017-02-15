@@ -2,7 +2,7 @@
  * @file
  * vuo.scene.arrange.grid node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -12,7 +12,7 @@
 VuoModuleMetadata({
 					 "title" : "Arrange 3D Objects in Grid",
 					 "keywords" : [ "align", "place", "position", "lattice", "matrix" ],
-					 "version" : "1.0.0",
+					 "version" : "1.0.1",
 					 "node": {
 						 "exampleCompositions" : [ "AddNoiseToClay.vuo" ]
 					 }
@@ -32,11 +32,14 @@ void nodeEvent
 		VuoOutputData(VuoSceneObject) griddedObject
 )
 {
-	*griddedObject = VuoSceneObject_makeEmpty();
-	(*griddedObject).childObjects = VuoListCreate_VuoSceneObject();
+	*griddedObject = VuoSceneObject_makeGroup(VuoListCreate_VuoSceneObject(), VuoTransform_makeIdentity());
 
 	unsigned long objectCount = VuoListGetCount_VuoSceneObject(objects);
 	unsigned long currentObject = 1;
+
+	VuoReal gridCellWidth = width / columns;
+	VuoReal gridCellHeight = height / rows;
+	VuoReal gridCellDepth = depth / slices;
 
 	for (unsigned int z = 0; z < slices; ++z)
 	{
@@ -56,8 +59,15 @@ void nodeEvent
 
 				if (scaleToFit)
 				{
-					VuoSceneObject_normalize(&object);
-					object.transform.scale = VuoPoint3d_multiply(object.transform.scale, fmin(fmin(width/columns, height/rows), depth/slices));
+					VuoBox bounds = VuoSceneObject_bounds(object);
+					VuoReal scaleFactor = 1;
+					if (bounds.size.x * scaleFactor > gridCellWidth)
+						scaleFactor *= gridCellWidth / (bounds.size.x * scaleFactor);
+					if (bounds.size.y * scaleFactor > gridCellHeight)
+						scaleFactor *= gridCellHeight / (bounds.size.y * scaleFactor);
+					if (bounds.size.z * scaleFactor > gridCellDepth)
+						scaleFactor *= gridCellDepth / (bounds.size.z * scaleFactor);
+					object.transform.scale = VuoPoint3d_multiply(object.transform.scale, scaleFactor);
 				}
 
 				VuoListAppendValue_VuoSceneObject((*griddedObject).childObjects, object);

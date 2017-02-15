@@ -2,7 +2,7 @@
  * @file
  * VuoRendererSignaler implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -47,6 +47,14 @@ void VuoRendererSignaler::signalInputEditorRequested(VuoRendererPort *port)
 void VuoRendererSignaler::signalNodeTitleEditorRequested(VuoRendererNode *node)
 {
 	emit nodeTitleEditorRequested(node);
+}
+
+/**
+ * Emits a @c nodeTitleEditorRequested signal.
+ */
+void VuoRendererSignaler::signalSubcompositionEditRequested(VuoRendererNode *node)
+{
+	emit subcompositionEditRequested(node);
 }
 
 /**

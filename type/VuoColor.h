@@ -2,7 +2,7 @@
  * @file
  * VuoColor C type definition.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -10,7 +10,9 @@
 #ifndef VUOCOLOR_H
 #define VUOCOLOR_H
 
+#include "VuoBoolean.h"
 #include "VuoReal.h"
+#include "VuoText.h"
 
 /// @{
 typedef const struct VuoList_VuoColor_struct { void *l; } * VuoList_VuoColor;
@@ -38,7 +40,10 @@ typedef struct
 VuoColor VuoColor_makeFromJson(struct json_object * js);
 struct json_object * VuoColor_getJson(const VuoColor value);
 char * VuoColor_getSummary(const VuoColor value);
-bool VuoColor_areEqual(const VuoColor value1, const VuoColor value2);
+
+#define VuoColor_SUPPORTS_COMPARISON
+bool VuoColor_areEqual(const VuoColor a, const VuoColor b);
+bool VuoColor_isLessThan(const VuoColor a, const VuoColor b);
 
 /**
  * Returns a @c VuoColor with the given red, green, blue, alpha.
@@ -65,8 +70,10 @@ static inline void VuoColor_getRGBA(VuoColor color, VuoReal *r, VuoReal *g, VuoR
 	*a = color.a;
 }
 
-VuoColor VuoColor_makeWithHSLA(VuoReal h, VuoReal s, VuoReal l, VuoReal a);
+VuoColor VuoColor_makeWithHSLA(VuoReal hue, VuoReal saturation, VuoReal luminosity, VuoReal alpha);
 void VuoColor_getHSLA(VuoColor color, VuoReal *h, VuoReal *s, VuoReal *l, VuoReal *a);
+
+VuoText VuoColor_getHex(VuoColor color, VuoBoolean includeAlpha);
 
 VuoColor VuoColor_average(VuoList_VuoColor colors);
 

@@ -2,7 +2,7 @@
  * @file
  * VuoLeapFrame implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -16,7 +16,7 @@
 
 /// @{
 #ifdef VUO_COMPILER
- VuoModuleMetadata({
+VuoModuleMetadata({
 					"title" : "Leap Frame",
 					"description" : "Frame of Leap Motion data.",
 					"keywords" : ["gesture", "controller", "motion", "hand", "finger"],

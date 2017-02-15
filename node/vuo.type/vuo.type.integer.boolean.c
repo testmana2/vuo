@@ -2,7 +2,7 @@
  * @file
  * vuo.type.integer.boolean node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -10,9 +10,9 @@
 #include "node.h"
 
 VuoModuleMetadata({
-					 "title" : "Convert Integer to Boolean",
+					 "title" : "Is Integer Nonzero",
 					 "keywords" : [ "0", "1", "true", "false" ],
-					 "version" : "1.0.0"
+					 "version" : "1.0.1"
 				 });
 
 void nodeEvent

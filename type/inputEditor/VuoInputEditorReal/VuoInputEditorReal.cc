@@ -2,7 +2,7 @@
  * @file
  * VuoInputEditorReal implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -29,8 +29,7 @@ VuoInputEditor * VuoInputEditorRealFactory::newInputEditor()
  */
 void VuoInputEditorReal::setUpDialog(QDialog &dialog, json_object *originalValue, json_object *details)
 {
-	// See https://b33p.net/kosada/node/5724
-	const int decimalPrecision = 6;
+	const int decimalPrecision = DBL_MAX_10_EXP + DBL_DIG;
 
 	suggestedMin = -std::numeric_limits<double>::max();
 	suggestedMax = std::numeric_limits<double>::max();
@@ -217,11 +216,7 @@ void VuoInputEditorReal::updateLineEditValue(int newSliderValue)
 
 void VuoInputEditorReal::emitValueChanged()
 {
-	const char *valueAsString = lineEdit->text().toUtf8().constData();
-	VuoReal value = VuoReal_makeFromString(valueAsString);
-	json_object *valueAsJson = VuoReal_getJson(value);
-	emit valueChanged(valueAsJson);
-	json_object_put(valueAsJson);
+	emit valueChanged(getAcceptedValue());
 }
 
 /**

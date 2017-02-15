@@ -2,7 +2,7 @@
  * @file
  * VuoCompilerModule interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -10,11 +10,11 @@
 #ifndef VUOCOMPILERMODULE_HH
 #define VUOCOMPILERMODULE_HH
 
-#include "VuoBaseDetail.hh"
-#include "VuoModule.hh"
 #include "VuoCompilerTargetSet.hh"
 
-#include "VuoCompilerBitcodeParser.hh"
+class VuoCompilerBitcodeParser;
+class VuoCompilerModule;
+class VuoModule;
 
 /**
  * A node class or type defined in an LLVM module.
@@ -25,6 +25,7 @@ class VuoCompilerModule
 {
 private:
 	VuoCompilerTargetSet compatibleTargets;  ///< The set of targets with which this module is compatible.
+	bool builtIn;
 
 	static bool isModule(Module *module, string moduleKey);
 
@@ -59,12 +60,15 @@ public:
 	VuoCompilerTargetSet parseTargetSet(json_object *o, string key);
 	VuoCompilerTargetSet::MacVersion parseMacVersion(string version);
 	static Function * declareFunctionInModule(Module *module, Function *function);
-	set<string> getDependencies(void);
+	virtual set<string> getDependencies(void);
+	virtual string getDependencyName(void);
 	VuoCompilerTargetSet getCompatibleTargets(void);
 	Module * getModule(void);
 	VuoModule * getPseudoBase(void);
 	bool getPremium(void);
 	void setPremium(bool premium);
+	bool isBuiltIn(void);
+	void setBuiltIn(bool builtIn);
 };
 
 #endif // VUOCOMPILERMODULE_HH

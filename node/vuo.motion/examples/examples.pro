@@ -6,7 +6,9 @@ EXAMPLE_SOURCES += \
 	CompareSmoothedMotion.vuo \
 	DrawCurve.vuo \
 	ExplodeClay.vuo \
+   OffsetOscillations.vuo \
+	RotateInSequence.vuo \
 	SpringBack.vuo \
-	WaveSphere.vuo
+	WaveCircle.vuo
 
 include(../../../example.pri)

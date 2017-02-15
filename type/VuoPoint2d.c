@@ -2,7 +2,7 @@
  * @file
  * VuoPoint2d implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -101,6 +101,14 @@ VuoRectangle VuoPoint2d_rectangleUnion(VuoRectangle rectangleA, VuoRectangle rec
 VuoPoint2d VuoPoint2d_makeFromJson(json_object * js)
 {
 	VuoPoint2d point = {0,0};
+
+	if (json_object_get_type(js) == json_type_string)
+	{
+		const char *s = json_object_get_string(js);
+		sscanf(s, "%20g, %20g", &point.x, &point.y);
+		return point;
+	}
+
 	json_object *o = NULL;
 
 	if (json_object_object_get_ex(js, "x", &o))

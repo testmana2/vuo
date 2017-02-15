@@ -2,7 +2,7 @@
  * @file
  * TestCompositionExecution implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -61,7 +61,18 @@ string TestCompositionExecution::wrapNodeInComposition(VuoCompilerNodeClass *nod
 		string portName = port->getClass()->getName();
 		oss << "|<" << portName << ">" << portName << "\\r";
 	}
-	oss << "\"];" << endl;
+	oss << "\"";
+	foreach (VuoPort *port, node->getInputPorts())
+	{
+		VuoCompilerInputData *data = dynamic_cast<VuoCompilerInputEventPort *>( port->getCompiler() )->getData();
+		if (data)
+		{
+			string initialValue = VuoStringUtilities::transcodeToGraphvizIdentifier( data->getInitialValue() );
+			string portName = port->getClass()->getName();
+			oss << " _" << portName << "=\"" << initialValue << "\"";
+		}
+	}
+	oss << "];" << endl;
 
 	oss << "PublishedOutputs [type=\"vuo.out\" label=\"PublishedOutputs";
 	foreach (VuoPort *port, node->getOutputPorts())

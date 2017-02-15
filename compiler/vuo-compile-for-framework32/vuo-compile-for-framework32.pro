@@ -15,6 +15,17 @@ SOURCES += \
 LIBS += -rpath @loader_path/../../../..
 
 FRAMEWORK_HELPERS_FOLDER = $$ROOT/framework/Vuo.framework/Versions/$$VUO_VERSION/Helpers
+
+QMAKE_POST_LINK = true
+coverage {
+	QMAKE_POST_LINK += && install_name_tool -change @executable_path/../lib/libprofile_rt.dylib $$LLVM_ROOT/lib/libprofile_rt.dylib vuo-compile
+}
 QMAKE_POST_LINK += \
-	   mkdir -p "$$FRAMEWORK_HELPERS_FOLDER" \
-	&& cp vuo-compile "$$FRAMEWORK_HELPERS_FOLDER"
+	&& mkdir -p "$$FRAMEWORK_HELPERS_FOLDER" \
+   	&& cp vuo-compile "$$FRAMEWORK_HELPERS_FOLDER"
+
+EDITOR_FOLDER = $$ROOT/editor/VuoEditorApp
+exists($$EDITOR_FOLDER) {
+	EDITOR_FRAMEWORK_HELPERS_FOLDER = $$EDITOR_FOLDER/Vuo\ Editor.app/Contents/Frameworks/Vuo.framework/Versions/$$VUO_VERSION/Helpers
+	QMAKE_POST_LINK += && cp vuo-compile "$$EDITOR_FRAMEWORK_HELPERS_FOLDER"
+}

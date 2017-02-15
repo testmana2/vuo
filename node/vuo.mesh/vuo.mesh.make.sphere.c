@@ -2,7 +2,7 @@
  * @file
  * vuo.vertices.make.sphere node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -21,14 +21,15 @@ VuoModuleMetadata({
 						 "VuoMeshParametric"
 					 ],
 					 "node": {
-						  "exampleCompositions" : [ ]
+						  "exampleCompositions" : [ ],
+						  "isDeprecated": true
 					 }
 				 });
 
 void nodeEvent
 (
-		VuoInputData(VuoInteger, {"default":16,"suggestedMin":2}) rows,
-		VuoInputData(VuoInteger, {"default":16,"suggestedMin":2}) columns,
+		VuoInputData(VuoInteger, {"default":16,"suggestedMin":4}) rows,
+		VuoInputData(VuoInteger, {"default":16,"suggestedMin":4}) columns,
 		VuoOutputData(VuoMesh) mesh
 )
 {
@@ -36,9 +37,12 @@ void nodeEvent
 	char *yExp = "sin((v-.5)*180) / 2.";
 	char *zExp = "cos((u-.5)*360) * cos((v-.5)*180) / 2.";
 
+	unsigned int _rows = MIN(512, MAX(4, rows));
+	unsigned int _columns = MIN(512, MAX(4, columns));
+
 	*mesh = VuoMeshParametric_generate(0,
 													 xExp, yExp, zExp,
-													 columns, rows,
+													 _columns, _rows,
 													 true,		// close u
 													 0, 1,
 													 false,		// close v

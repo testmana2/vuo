@@ -2,7 +2,7 @@
  * @file
  * TestBuiltProducts interface and implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -226,6 +226,7 @@ private slots:
 			qtPaths.insert("QtPrintSupport.framework");
 			qtPaths.insert("QtWidgets.framework");
 			qtPaths.insert("QtXml.framework");
+			qtPaths.insert("QtNetwork.framework");
 			qtPaths.insert("QtPlugins");
 			for (set<string>::iterator i = qtPaths.begin(); i != qtPaths.end(); ++i)
 			{

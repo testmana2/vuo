@@ -2,7 +2,7 @@
  * @file
  * vuo-debug implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -51,6 +51,15 @@ class TelemetryLogger : public VuoRunnerDelegate
 	}
 };
 
+void printHelp(char *argv0)
+{
+	printf("Tool for debugging compositions. Runs the given composition executable file and logs telemetry data to the console.\n\n"
+		   "Nodes in the composition use the directory containing the composition executable file to resolve relative paths.\n\n"
+		   "Usage: %s [options] file\n\n"
+		   "Options:\n"
+		   "  --help                       Display this information.\n",
+		   argv0);
+}
 
 int main (int argc, char * const argv[])
 {
@@ -79,14 +88,7 @@ int main (int argc, char * const argv[])
 		hasInputFile = (optind < argc) && ! doPrintHelp;
 
 		if (doPrintHelp)
-		{
-			printf("Tool for debugging compositions. Runs the given composition executable file and logs telemetry data to the console.\n\n"
-				   "Nodes in the composition use the directory containing the composition executable file to resolve relative paths.\n\n"
-				   "Usage: %s [options] file\n\n"
-				   "Options:\n"
-				   "  --help                       Display this information.\n",
-				   argv[0]);
-		}
+			printHelp(argv[0]);
 		else
 		{
 			if (! hasInputFile)
@@ -101,7 +103,9 @@ int main (int argc, char * const argv[])
 			TelemetryLogger *logger = new TelemetryLogger();
 			runner->setDelegate(logger);
 
-			runner->start();
+			runner->startPaused();
+			runner->subscribeToAllTelemetry();
+			runner->unpause();
 			runner->waitUntilStopped();
 		}
 
@@ -110,6 +114,11 @@ int main (int argc, char * const argv[])
 	catch (std::exception &e)
 	{
 		fprintf(stderr, "%s: error: %s\n", hasInputFile ? executablePath.c_str() : argv[0], e.what());
+		if (!hasInputFile)
+		{
+			fprintf(stderr, "\n");
+			printHelp(argv[0]);
+		}
 		return 1;
 	}
 }

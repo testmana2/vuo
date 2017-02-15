@@ -2,7 +2,7 @@
  * @file
  * VuoKeyboard implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -66,6 +66,8 @@ static void VuoKeyboard_fireTypingIfNeeded(NSEvent *event,
 		char *unicodeBytes = VuoKey_getCharactersForMacVirtualKeyCode([event keyCode],
 																	  [event modifierFlags],
 																	  &context->deadKeyState);
+		if (!unicodeBytes)
+			return;
 		NSString *unicodeString = [NSString stringWithUTF8String:unicodeBytes];
 
 		for (NSUInteger i = 0; i < [unicodeString length]; ++i)
@@ -201,7 +203,9 @@ void VuoKeyboard_stopListening(VuoKeyboard *keyboardListener)
 {
 	struct VuoKeyboardContext *context = (struct VuoKeyboardContext *)keyboardListener;
 
+	VUOLOG_PROFILE_BEGIN(mainQueue);
 	dispatch_sync(dispatch_get_main_queue(), ^{  // wait for any in-progress monitor handlers to complete
+						VUOLOG_PROFILE_END(mainQueue);
 						if (context->monitor)
 						{
 							[NSEvent removeMonitor:context->monitor];

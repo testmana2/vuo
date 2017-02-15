@@ -2,7 +2,7 @@
  * @file
  * TestVuoLayer implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -25,10 +25,6 @@ class TestVuoLayer : public QObject
 	Q_OBJECT
 
 private slots:
-	void initTestCase()
-	{
-		VuoHeap_init();
-	}
 
 	void testBounds_data()
 	{
@@ -44,8 +40,8 @@ private slots:
 
 		{
 			VuoList_VuoLayer childLayers = VuoListCreate_VuoLayer();
-			VuoListAppendValue_VuoLayer(childLayers, VuoLayer_make("child1", VuoImage_makeColorImage(VuoColor_makeWithRGBA(1,1,1,1), 1,1), VuoPoint2d_make(-1,0), 0, 1, 1));
-			VuoListAppendValue_VuoLayer(childLayers, VuoLayer_make("child2", VuoImage_makeColorImage(VuoColor_makeWithRGBA(1,1,1,1), 1,1), VuoPoint2d_make( 0,1), 0, 1, 1));
+			VuoListAppendValue_VuoLayer(childLayers, VuoLayer_make(VuoText_make("child1"), VuoImage_makeColorImage(VuoColor_makeWithRGBA(1,1,1,1), 1,1), VuoPoint2d_make(-1,0), 0, 1, 1));
+			VuoListAppendValue_VuoLayer(childLayers, VuoLayer_make(VuoText_make("child2"), VuoImage_makeColorImage(VuoColor_makeWithRGBA(1,1,1,1), 1,1), VuoPoint2d_make( 0,1), 0, 1, 1));
 
 			VuoLayer parent = VuoLayer_makeGroup(childLayers, VuoTransform2d_makeIdentity());
 			QTest::newRow("two scaled layers")	<< parent

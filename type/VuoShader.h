@@ -2,7 +2,7 @@
  * @file
  * VuoShader C type definition.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -24,6 +24,7 @@
 #include "VuoList_VuoImage.h"
 #include "VuoList_VuoColor.h"
 #include "VuoList_VuoText.h"
+#include "VuoGlPool.h"
 
 /**
  * @ingroup VuoTypes
@@ -87,11 +88,12 @@ typedef struct
 	VuoText geometrySource;
 	unsigned int glGeometryShaderName;
 	unsigned int expectedOutputPrimitiveCount;
+	bool mayChangeOutputPrimitiveCount;
 
 	VuoText fragmentSource;
 	unsigned int glFragmentShaderName;
 
-	unsigned int glProgramName;
+	VuoGlProgram program;
 } VuoSubshader;
 
 /**
@@ -130,6 +132,11 @@ typedef struct _VuoShader
 
 	float objectScale;	///< Typically 1.  If the shader draws an object, this specifies how large the object is relative to the quad onto which it's drawn (e.g., `VuoShader_makeUnlitCircleShader()` is 0.5 since the circle it draws is half the size of the quad).
 
+	bool isTransparent;	///< Is this shader meant to be a transparent overlay?  If true, @ref VuoSceneRenderer disables backface culling and depth buffer writing while rendering with this shader.  In the fragment shader, use `gl_FrontFacing` to discard backfaces or treat them differently, if desired.
+
+	VuoImage colorBuffer;	///< The renderbuffer color texture captured for this shader (if any).
+	VuoImage depthBuffer;	///< The renderbuffer depth texture captured for this shader (if any).
+
 	void *lock;	///< `dispatch_semaphore_t` to serialize operations that modify the state of this GL program object.
 } *VuoShader;
 
@@ -139,6 +146,7 @@ typedef struct _VuoShader
 VuoShader VuoShader_make(const char *name);
 void VuoShader_addSource(VuoShader shader, const VuoMesh_ElementAssemblyMethod inputPrimitiveMode, const char *vertexShaderSource, const char *geometryShaderSource, const char *fragmentShaderSource);
 void VuoShader_setExpectedOutputPrimitiveCount(VuoShader shader, const VuoMesh_ElementAssemblyMethod inputPrimitiveMode, const unsigned int expectedOutputPrimitiveCount);
+void VuoShader_setMayChangeOutputPrimitiveCount(VuoShader shader, const VuoMesh_ElementAssemblyMethod inputPrimitiveMode, const bool mayChangeOutputPrimitiveCount);
 
 /// A macro to facilitate defining a GLSL shader in a C source file.
 #define VUOSHADER_GLSL_SOURCE(version,source) "#version " #version "\n" #source
@@ -149,9 +157,9 @@ void VuoShader_setExpectedOutputPrimitiveCount(VuoShader shader, const VuoMesh_E
 /// @{
 VuoShader VuoShader_makeDefaultShader(void);
 VuoShader VuoShader_makeUnlitImageShader(VuoImage image, VuoReal alpha);
-VuoShader VuoShader_makeUnlitAlphaPassthruImageShader(VuoImage image);
+VuoShader VuoShader_makeUnlitAlphaPassthruImageShader(VuoImage image, bool flipped);
 VuoShader VuoShader_makeGlTextureRectangleShader(VuoImage image, VuoReal alpha);
-VuoShader VuoShader_makeGlTextureRectangleAlphaPassthruShader(VuoImage image);
+VuoShader VuoShader_makeGlTextureRectangleAlphaPassthruShader(VuoImage image, bool flipped);
 
 VuoShader VuoShader_makeUnlitColorShader(VuoColor color);
 VuoShader VuoShader_makeUnlitCircleShader(VuoColor color, VuoReal sharpness);
@@ -160,8 +168,11 @@ VuoShader VuoShader_makeUnlitRoundedRectangleShader(VuoColor color, VuoReal shar
 VuoShader VuoShader_makeLitColorShader(VuoColor diffuseColor, VuoColor highlightColor, VuoReal shininess);
 VuoShader VuoShader_makeLitImageShader(VuoImage image, VuoReal alpha, VuoColor highlightColor, VuoReal shininess);
 VuoShader VuoShader_makeLitImageDetailsShader(VuoImage image, VuoReal alpha, VuoImage specularImage, VuoImage normalImage);
-VuoShader VuoShader_makeLinearGradientShader(VuoList_VuoColor colors, VuoPoint2d start, VuoPoint2d end);
-VuoShader VuoShader_makeRadialGradientShader(VuoList_VuoColor colors, VuoPoint2d center, VuoReal radius, VuoReal width, VuoReal height);
+VuoShader VuoShader_makeLinearGradientShader(VuoList_VuoColor colors, VuoPoint2d start, VuoPoint2d end, VuoReal noiseAmount);
+VuoShader VuoShader_makeRadialGradientShader(VuoList_VuoColor colors, VuoPoint2d center, VuoReal radius, VuoReal width, VuoReal height, VuoReal noiseAmount);
+
+VuoShader VuoShader_makeFrostedGlassShader(void);
+void VuoShader_setFrostedGlassShaderValues(VuoShader shader, VuoColor color, VuoReal brightness, VuoReal noiseTime, VuoReal noiseAmount, VuoReal noiseScale, VuoReal chromaticAberration, VuoInteger iterations);
 /// @}
 
 
@@ -169,9 +180,11 @@ VuoShader VuoShader_makeRadialGradientShader(VuoList_VuoColor colors, VuoPoint2d
 /// @{
 bool VuoShader_isTransformFeedback(VuoShader shader);
 unsigned int VuoShader_getExpectedOutputPrimitiveCount(VuoShader shader, const VuoMesh_ElementAssemblyMethod inputPrimitiveMode);
+bool VuoShader_getMayChangeOutputPrimitiveCount(VuoShader shader, const VuoMesh_ElementAssemblyMethod inputPrimitiveMode);
 bool VuoShader_getAttributeLocations(VuoShader shader, const VuoMesh_ElementAssemblyMethod inputPrimitiveMode, VuoGlContext glContext, int *positionLocation, int *normalLocation, int *tangentLocation, int *bitangentLocation, int *textureCoordinateLocation);
-unsigned int VuoShader_activate(VuoShader shader, const VuoMesh_ElementAssemblyMethod inputPrimitiveMode, VuoGlContext glContext);
+bool VuoShader_activate(VuoShader shader, const VuoMesh_ElementAssemblyMethod inputPrimitiveMode, VuoGlContext glContext, VuoGlProgram *outputProgram);
 void VuoShader_deactivate(VuoShader shader, const VuoMesh_ElementAssemblyMethod inputPrimitiveMode, VuoGlContext glContext);
+void VuoShader_cleanupContext(VuoGlContext glContext);
 
 void VuoShader_setUniform_VuoImage  (VuoShader shader, const char *uniformIdentifier, const VuoImage   image);
 void VuoShader_setUniform_VuoBoolean(VuoShader shader, const char *uniformIdentifier, const VuoBoolean boolean);
@@ -181,6 +194,10 @@ void VuoShader_setUniform_VuoPoint2d(VuoShader shader, const char *uniformIdenti
 void VuoShader_setUniform_VuoPoint3d(VuoShader shader, const char *uniformIdentifier, const VuoPoint3d point3d);
 void VuoShader_setUniform_VuoPoint4d(VuoShader shader, const char *uniformIdentifier, const VuoPoint4d point4d);
 void VuoShader_setUniform_VuoColor  (VuoShader shader, const char *uniformIdentifier, const VuoColor   color);
+
+VuoShader VuoShader_make_VuoColor(VuoColor color);
+VuoShader VuoShader_make_VuoShader(VuoShader shader);
+VuoShader VuoShader_make_VuoImage(VuoImage image);
 
 VuoImage VuoShader_getUniform_VuoImage(VuoShader shader, const char *uniformIdentifier);
 

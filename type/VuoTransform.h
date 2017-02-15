@@ -2,7 +2,7 @@
  * @file
  * VuoTransform C type definition.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -81,6 +81,7 @@ static inline VuoPoint4d VuoTransform_quaternionComposite(VuoPoint4d a, VuoPoint
 static inline VuoPoint4d VuoTransform_quaternionComposite(VuoPoint4d a, VuoPoint4d b)
 {
 	VuoPoint4d q;
+	// Hamilton product (a.w, a.x, a.y, a.z) * (b.w, b.x, b.y, b.z)
 	q.x = a.w*b.x + a.x*b.w + a.y*b.z - a.z*b.y;
 	q.y = a.w*b.y + a.y*b.w + a.z*b.x - a.x*b.z;
 	q.z = a.w*b.z + a.z*b.w + a.x*b.y - a.y*b.x;
@@ -106,13 +107,18 @@ static inline VuoPoint4d VuoTransform_quaternionFromAxisAngle(VuoPoint3d axis, f
 VuoPoint4d VuoTransform_quaternionFromBasis(VuoPoint3d basis[3]);
 
 /**
- * Returns the quaternion describing the rotation from direction a to b.
+ * Returns the quaternion describing the rotation from direction @a from to @a to.
+ *
+ * If either @a from or @a to has magnitude 0, then returns the identity quaternion (no rotation).
  */
 static inline VuoPoint4d VuoTransform_quaternionFromVectors(VuoPoint3d from, VuoPoint3d to) __attribute__((const));
 static inline VuoPoint4d VuoTransform_quaternionFromVectors(VuoPoint3d from, VuoPoint3d to)
 {
 	// http://books.google.com/books?id=hiBFUv_FT0wC&pg=PA214&lpg=PA214&dq=Stan+Melax's+article+in+Game+Programming+Gems&source=bl&ots=OCjDPwza1h&sig=6_bDSzTrnI3qCEG9vtVV_mDBgg8&hl=en&sa=X&ei=ffReUsSaBIrMqAGg6YD4Aw&ved=0CCsQ6AEwAA#v=onepage&q=Stan%20Melax's%20article%20in%20Game%20Programming%20Gems&f=false
-	VuoPoint4d q;
+	VuoPoint4d q = { 0, 0, 0, 1 };
+
+	if (VuoPoint3d_magnitude(from) == 0 || VuoPoint3d_magnitude(to) == 0)
+		return q;
 
 	VuoPoint3d fromNormalized = VuoPoint3d_normalize(from);
 	VuoPoint3d toNormalized = VuoPoint3d_normalize(to);
@@ -127,6 +133,19 @@ static inline VuoPoint4d VuoTransform_quaternionFromVectors(VuoPoint3d from, Vuo
 	q.w = s / 2.f;
 
 	return q;
+}
+
+/**
+ * Rotates 3D vector `v` by quaternion `q`.
+ */
+static inline VuoPoint3d VuoTransform_rotateVectorWithQuaternion(const VuoPoint3d v, const VuoPoint4d q) __attribute__((const));
+static inline VuoPoint3d VuoTransform_rotateVectorWithQuaternion(const VuoPoint3d v, const VuoPoint4d q)
+{
+	// http://math.stackexchange.com/questions/40164/how-do-you-rotate-a-vector-by-a-unit-quaternion/535223
+	VuoPoint4d vQuaternion = (VuoPoint4d){v.x, v.y, v.z, 0};
+	VuoPoint4d qConjugate = (VuoPoint4d){-q.x, -q.y, -q.z, q.w};
+	VuoPoint4d result = VuoTransform_quaternionComposite(VuoTransform_quaternionComposite(q, vQuaternion), qConjugate);
+	return (VuoPoint3d){result.x, result.y, result.z};
 }
 
 /**
@@ -206,7 +225,23 @@ static inline void VuoTransform_printMatrix4x4(const float *matrix)
 
 void VuoTransform_invertMatrix4x4(const float *matrix, float *outputInvertedMatrix);
 
-VuoPoint3d VuoTransform_transformPoint(const float *matrix, VuoPoint3d point);
+/**
+ * @ingroup VuoTransform
+ * Transforms @c point using @c matrix (a column-major matrix of 16 values), and returns the new point.
+ *
+ * @see VuoTransform_getMatrix
+ */
+static inline VuoPoint3d VuoTransform_transformPoint(const float *matrix, VuoPoint3d point)
+{
+	VuoPoint3d transformedPoint = {
+		point.x * matrix[0] + point.y * matrix[4] + point.z * matrix[ 8] + matrix[12],
+		point.x * matrix[1] + point.y * matrix[5] + point.z * matrix[ 9] + matrix[13],
+		point.x * matrix[2] + point.y * matrix[6] + point.z * matrix[10] + matrix[14]
+	};
+	return transformedPoint;
+}
+
+
 VuoRectangle VuoTransform_transformRectangle(const float *matrix, VuoRectangle rectangle);
 
 VuoTransform VuoTransform_makeFromJson(struct json_object *js);

@@ -2,7 +2,7 @@
  * @file
  * VuoBoolean implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "type.h"
 #include "VuoBoolean.h"
 
@@ -31,8 +32,16 @@ VuoModuleMetadata({
  * @ingroup VuoBoolean
  * Decodes the JSON object @c js, expected to contain a boolean, to create a new @c VuoBoolean.
  */
-VuoBoolean VuoBoolean_makeFromJson(json_object * js)
+VuoBoolean VuoBoolean_makeFromJson(json_object *js)
 {
+	if (json_object_get_type(js) == json_type_string)
+	{
+		char firstChar = tolower(json_object_get_string(js)[0]);
+		if (firstChar == 'n'  // "no"
+		 || firstChar == 'f') // "false"
+			return false;
+	}
+
 	return json_object_get_boolean(js);
 }
 

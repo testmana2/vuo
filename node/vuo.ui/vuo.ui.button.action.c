@@ -2,7 +2,7 @@
  * @file
  * vuo.ui.button.action node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -300,13 +300,13 @@ static void startTriggers(struct nodeInstanceData *context)
 												context->renderedLayers.window, VuoModifierKey_Any);
 	VuoMouse_startListeningForDragsWithCallback(context->mouseDraggedListener,
 												^(VuoPoint2d point) { mouseMoved(context, point); },
-												VuoMouseButton_Left, context->renderedLayers.window, VuoModifierKey_Any);
+												VuoMouseButton_Left, context->renderedLayers.window, VuoModifierKey_Any, true);
 	VuoMouse_startListeningForPressesWithCallback(context->mousePressedListener,
 												  ^(VuoPoint2d point) { mousePressed(context, point); },
 												  VuoMouseButton_Left, context->renderedLayers.window, VuoModifierKey_Any);
 	VuoMouse_startListeningForReleasesWithCallback(context->mouseReleasedListener,
 												   ^(VuoPoint2d point) { mouseReleased(context, point); },
-												   VuoMouseButton_Left, context->renderedLayers.window, VuoModifierKey_Any);
+												   VuoMouseButton_Left, context->renderedLayers.window, VuoModifierKey_Any, true);
 }
 
 static void stopTriggers(struct nodeInstanceData *context)

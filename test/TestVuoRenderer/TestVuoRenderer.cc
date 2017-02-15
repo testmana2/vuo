@@ -2,7 +2,7 @@
  * @file
  * TestVuoRenderer implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -12,7 +12,6 @@
 #include "VuoPort.hh"
 #include "VuoCompiler.hh"
 #include "VuoCompilerNodeClass.hh"
-#include "VuoCompilerPublishedInputNodeClass.hh"
 #include "VuoRendererComposition.hh"
 #include "VuoRendererNode.hh"
 #include "VuoRendererCable.hh"
@@ -110,6 +109,35 @@ private slots:
 	}
 
 
+	void testNodeWideEnoughForPort_data()
+	{
+		QTest::addColumn<QString>("portDisplayName");
+
+		QTest::newRow("time") << "Time";
+		QTest::newRow("long") << "Node Instance Trigger Stop Start 123";
+	}
+	void testNodeWideEnoughForPort()
+	{
+		QFETCH(QString, portDisplayName);
+
+		vector<string> inputs, outputs;
+		inputs.push_back("i");
+		inputs.push_back(portDisplayName.toStdString());
+		VuoNodeClass *nc = new VuoNodeClass("test", inputs, outputs);
+		VuoNode *n = nc->newNode();
+		VuoRendererNode *rn = new VuoRendererNode(n, new VuoRendererSignaler());
+		VuoRendererPortList *rp = rn->getInputPorts();
+
+		float nodeRight = rn->boundingRect().right();
+		float portRight = rp->childItems().at(2)->boundingRect().right();
+		QVERIFY(portRight < nodeRight);
+
+		delete rn;
+		delete n;
+		delete nc;
+	}
+
+
 	void testCableCarriesData_data()
 	{
 		QTest::addColumn<QString>("fromNode");
@@ -150,90 +178,6 @@ private slots:
 
 		delete toN;
 		delete fromN;
-	}
-
-
-	void testCableTint()
-	{
-		VuoNode *nodeGrey = compiler->getNodeClass("vuo.text.cut")->newNode();
-		new VuoRendererNode(nodeGrey, NULL);
-		VuoPort *nodeGreyInputPort = nodeGrey->getInputPortWithName("text");
-		new VuoRendererPort(nodeGreyInputPort, NULL, false, false, false);
-		VuoPort *nodeGreyOutputPort = nodeGrey->getOutputPortWithName("partialText");
-		new VuoRendererPort(nodeGreyOutputPort, NULL, true, false, false);
-
-		VuoNode *nodeYellow = compiler->getNodeClass("vuo.text.cut")->newNode();
-		new VuoRendererNode(nodeYellow, NULL);
-		nodeYellow->setTintColor(VuoNode::TintYellow);
-		VuoPort *nodeYellowInputPort = nodeYellow->getInputPortWithName("text");
-		new VuoRendererPort(nodeYellowInputPort, NULL, false, false, false);
-		VuoPort *nodeYellowOutputPort = nodeYellow->getOutputPortWithName("partialText");
-		new VuoRendererPort(nodeYellowOutputPort, NULL, true, false, false);
-
-		VuoNode *nodeYellow2 = compiler->getNodeClass("vuo.text.cut")->newNode();
-		new VuoRendererNode(nodeYellow2, NULL);
-		nodeYellow2->setTintColor(VuoNode::TintYellow);
-		VuoPort *nodeYellow2InputPort = nodeYellow2->getInputPortWithName("text");
-		new VuoRendererPort(nodeYellow2InputPort, NULL, false, false, false);
-		VuoPort *nodeYellow2OutputPort = nodeYellow2->getOutputPortWithName("partialText");
-		new VuoRendererPort(nodeYellow2OutputPort, NULL, true, false, false);
-
-		// A cable between 2 different node tints should be tinted with the left node's color.
-		{
-			VuoRendererCable *rc = new VuoRendererCable(new VuoCable(nodeGrey, nodeGreyOutputPort, nodeYellow, nodeYellowInputPort));
-			QCOMPARE(rc->getTintColor(), VuoNode::TintNone);
-		}
-
-		// A cable between 2 different node tints, through a collapsed type converter, should be tinted with the left node's color.
-		{
-			// yellow -> yellow2 (collapsed type converter) -> grey
-			VuoRendererCable *rc = new VuoRendererCable(new VuoCable(nodeYellow, nodeYellowOutputPort, nodeYellow2, nodeYellow2InputPort));
-			new VuoRendererCable(new VuoCable(nodeYellow2, nodeYellow2OutputPort, nodeGrey, nodeGreyInputPort));
-			nodeYellow2->getRenderer()->setProxyNode(nodeGrey->getRenderer());
-			QCOMPARE(rc->getTintColor(), VuoNode::TintYellow);
-			nodeYellow2->getRenderer()->setProxyNode(NULL);
-		}
-
-		// A cable between 2 same node tints should be tinted.
-		{
-			VuoRendererCable *rc = new VuoRendererCable(new VuoCable(nodeYellow, nodeYellowOutputPort, nodeYellow2, nodeYellow2InputPort));
-			QCOMPARE(rc->getTintColor(), VuoNode::TintYellow);
-		}
-
-		// A cable between 2 same node tints, through a collapsed type converter, should be tinted.
-		{
-			// yellow -> grey (collapsed type converter) -> yellow2
-			VuoRendererCable *rc = new VuoRendererCable(new VuoCable(nodeYellow, nodeYellowOutputPort, nodeGrey, nodeGreyInputPort));
-			new VuoRendererCable(new VuoCable(nodeGrey, nodeGreyOutputPort, nodeYellow2, nodeYellow2InputPort));
-			nodeGrey->getRenderer()->setProxyNode(nodeYellow2->getRenderer());
-			QCOMPARE(rc->getTintColor(), VuoNode::TintYellow);
-			nodeGrey->getRenderer()->setProxyNode(NULL);
-		}
-
-		// A cable from the published input port pseudo-node should be untinted.
-		{
-			vector<string> publishedInputs;
-			publishedInputs.push_back("text");
-			VuoNodeClass dummyNodeClass(VuoNodeClass::publishedInputNodeClassName, vector<string>(), publishedInputs);
-			VuoNodeClass *publishedInputNodeClass = VuoCompilerPublishedInputNodeClass::newNodeClass(&dummyNodeClass);
-			VuoNode *publishedInputNode = publishedInputNodeClass->getCompiler()->newNode(VuoNodeClass::publishedInputNodeIdentifier, 0, 0);
-			VuoPort *publishedInputNodePort = publishedInputNode->getOutputPortWithName("text");
-
-			VuoRendererCable *rc = new VuoRendererCable(new VuoCable(publishedInputNode, publishedInputNodePort, nodeYellow, nodeYellowInputPort));
-			QCOMPARE(rc->getTintColor(), VuoNode::TintNone);
-		}
-
-		// A cable to the published output port pseudo-node should be tinted with the left node's color.
-		{
-			vector<string> publishedOutputs;
-			publishedOutputs.push_back("partialText");
-			VuoNodeClass *publishedOutputNodeClass = new VuoNodeClass(VuoNodeClass::publishedOutputNodeClassName, publishedOutputs, vector<string>());
-			VuoNode *publishedOutputNode = publishedOutputNodeClass->newNode(VuoNodeClass::publishedOutputNodeIdentifier, 0, 0);
-			VuoPort *publishedOutputNodePort = publishedOutputNode->getOutputPortWithName("partialText");
-
-			VuoRendererCable *rc = new VuoRendererCable(new VuoCable(nodeYellow, nodeYellowOutputPort, publishedOutputNode, publishedOutputNodePort));
-			QCOMPARE(rc->getTintColor(), VuoNode::TintYellow);
-		}
 	}
 
 

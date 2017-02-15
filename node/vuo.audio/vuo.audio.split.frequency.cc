@@ -2,7 +2,7 @@
  * @file
  * vuo.audio.split.frequency node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -16,7 +16,7 @@ extern "C" {
 VuoModuleMetadata({
 					 "title" : "Split Audio by Frequency",
 					 "keywords" : [ "processor" ],
-					 "version" : "2.0.0",
+					 "version" : "2.0.1",
 					 "dependencies" : [
 						 "Gamma"
 					 ],
@@ -40,29 +40,7 @@ struct nodeInstanceData
 	gam::Biquad<> *biquad_high;
 };
 
-extern "C"
-{
-	struct nodeInstanceData *nodeInstanceInit
-	(
-	);
-
-	void nodeInstanceEvent
-	(
-		VuoInputData(VuoAudioSamples) samples,
-		VuoInputData(VuoList_VuoReal) cutoffFrequencies,
-		VuoInputEvent() cutoffFrequenciesEvent,
-		VuoOutputData(VuoList_VuoAudioSamples) splitSamples,
-		VuoInstanceData(struct nodeInstanceData *) context
-	);
-
-	void nodeInstanceFini(
-			VuoInstanceData(struct nodeInstanceData *) context
-	);
-}
-
-struct nodeInstanceData *nodeInstanceInit
-(
-)
+extern "C" struct nodeInstanceData *nodeInstanceInit()
 {
 	struct nodeInstanceData *context = (struct nodeInstanceData *)calloc(1,sizeof(struct nodeInstanceData));
 	VuoRegister(context, free);
@@ -88,7 +66,7 @@ static int compare (const void * a, const void * b)
 	return x-y;
 }
 
-VuoAudioSamples SamplesWithFilterAndFrequency(const VuoAudioSamples samples, gam::Biquad<> *filter, const double frq)
+static VuoAudioSamples SamplesWithFilterAndFrequency(const VuoAudioSamples samples, gam::Biquad<> *filter, const double frq)
 {
 	(*filter).freq(frq);
 
@@ -110,7 +88,7 @@ VuoAudioSamples SamplesWithFilterAndFrequency(const VuoAudioSamples samples, gam
 	return filteredSamples;
 }
 
-void nodeInstanceEvent
+extern "C" void nodeInstanceEvent
 (
 	VuoInputData(VuoAudioSamples) samples,
 	VuoInputData(VuoList_VuoReal, {"default":[300, 4000]}) cutoffFrequencies,
@@ -123,7 +101,6 @@ void nodeInstanceEvent
 
 	if(len < 1) return;
 
-	unsigned int sampleCount = samples.sampleCount;
 	*splitSamples = VuoListCreate_VuoAudioSamples();
 
 	(*context)->sync->spu(VuoAudioSamples_sampleRate);
@@ -137,13 +114,13 @@ void nodeInstanceEvent
 	qsort (freq, len, sizeof(double), compare);
 
 	gam::Biquad<> *low = (*context)->biquad_low;
-	gam::Biquad<> *mid = (*context)->biquad_band;
 	gam::Biquad<> *high = (*context)->biquad_high;
 
 	VuoListAppendValue_VuoAudioSamples( (*splitSamples), SamplesWithFilterAndFrequency( samples, low, freq[0]) );
 
 	if(len > 1)
 	{
+		gam::Biquad<> *mid = (*context)->biquad_band;
 		for(int n = 0; n < len-1; n++)
 		{
 			double lowCutoff = freq[n];
@@ -158,7 +135,7 @@ void nodeInstanceEvent
 	free(freq);
 }
 
-void nodeInstanceFini(
+extern "C" void nodeInstanceFini(
 	VuoInstanceData(struct nodeInstanceData *) context
 )
 {

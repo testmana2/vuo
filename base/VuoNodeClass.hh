@@ -2,7 +2,7 @@
  * @file
  * VuoNodeClass interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -37,7 +37,6 @@ public:
 	static const string publishedOutputNodeClassName;
 	static const string publishedInputNodeIdentifier;
 	static const string publishedOutputNodeIdentifier;
-	static const string publishedInputNodeSimultaneousTriggerName;
 
 	VuoNode * newNode(string title="", double x=0, double y=0);
 	VuoNode * newNode(VuoNode *nodeToCopyMetadataFrom);
@@ -53,6 +52,9 @@ public:
 	vector<string> getExampleCompositionFileNames(void);
 	void setExampleCompositionFileNames(vector<string> exampleCompositionFileNames);
 
+	bool getDeprecated(void);
+	void setDeprecated(bool deprecated);
+
 	VuoPortClass * getRefreshPortClass(void);
 	void setRefreshPortClass(VuoPortClass * refreshPortClass);
 
@@ -66,6 +68,7 @@ public:
 
 private:
 	bool interface;
+	bool deprecated;
 	vector<string> exampleCompositionFileNames;
 	VuoPortClass * refreshPortClass;
 	vector<VuoPortClass *> inputPortClasses; ///< Includes refresh port.

@@ -2,7 +2,7 @@
  * @file
  * VuoArtNetInputDevice C type definition.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -47,6 +47,8 @@ struct json_object *VuoArtNetInputDevice_getJson(const VuoArtNetInputDevice valu
 char *VuoArtNetInputDevice_getSummary(const VuoArtNetInputDevice value);
 
 VuoArtNetInputDevice VuoArtNetInputDevice_make(const VuoInteger net, const VuoInteger subNet, const VuoInteger universe);
+
+#define VuoArtNetInputDevice_SUPPORTS_COMPARISON
 bool VuoArtNetInputDevice_areEqual(const VuoArtNetInputDevice value1, const VuoArtNetInputDevice value2);
 bool VuoArtNetInputDevice_isLessThan(const VuoArtNetInputDevice value1, const VuoArtNetInputDevice value2);
 

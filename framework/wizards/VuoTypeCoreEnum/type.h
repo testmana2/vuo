@@ -2,13 +2,12 @@
  * @file
  * %TypeName% C type definition.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
 
-#ifndef %TypeName:u%_H
-#define %TypeName:u%_H
+#pragma once
 
 /// @{
 typedef void * VuoList_%TypeName%;
@@ -37,6 +36,8 @@ typedef enum
 struct json_object *%TypeName%_getJson(const %TypeName% value);
 VuoList_%TypeName% %TypeName%_getAllowedValues(void);
 char *%TypeName%_getSummary(const %TypeName% value);
+
+#define %TypeName%_SUPPORTS_COMPARISON
 bool %TypeName%_areEqual(const %TypeName% valueA, const %TypeName% valueB);
 bool %TypeName%_isLessThan(const %TypeName% valueA, const %TypeName% valueB); 
 
@@ -53,5 +54,3 @@ void %TypeName%_release(%TypeName% value);
 /**
  * @}
  */
-
-#endif // %TypeName:u%_H

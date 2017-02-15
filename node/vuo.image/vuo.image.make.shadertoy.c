@@ -2,7 +2,7 @@
  * @file
  * vuo.shader.make.shadertoy node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -11,13 +11,14 @@
 #include "VuoGlContext.h"
 #include "VuoImageRenderer.h"
 #include <OpenGL/CGLMacro.h>
+#include <time.h>
 
 VuoModuleMetadata({
 					 "title" : "Make Image with Shadertoy",
 					 "keywords" : [ "opengl", "glsl", "scenegraph", "graphics",
 						 "lighting", "lit", "lighted",
 						 "Blinn", "Phong", "Lambert", "tone", "chroma" ],
-					 "version" : "2.0.0",
+					 "version" : "2.1.0",
 					 "dependencies" : [
 						 "VuoGlContext"
 					 ],
@@ -52,7 +53,7 @@ uniform sampler2D iChannel2;	         	\n 	\
 uniform sampler2D iChannel3;	         	\n 	\
 uniform vec4 	  iDate;					\n 	\
 const float 	  iSampleRate = 44100;      \n  \
-\n";
+#line 0\n";
 
 static const char* shadertoyVertexShader = "#version 120\n 	\
 attribute vec4 position;									\
@@ -87,16 +88,19 @@ struct nodeInstanceData * nodeInstanceInit(
 	instance->shader = VuoShader_make("Shadertoy Fragment Shader");
 	VuoRetain(instance->shader);
 
-	char* fragmentSource = (char*)malloc(strlen(ShaderHeader) + strlen(fragmentShader) + 1);
+	if (fragmentShader)
+	{
+		char *fragmentSource = (char *)malloc(strlen(ShaderHeader) + strlen(fragmentShader) + 1);
 
-	strcpy(fragmentSource, ShaderHeader);
-	strcat(fragmentSource, fragmentShader);
+		strcpy(fragmentSource, ShaderHeader);
+		strcat(fragmentSource, fragmentShader);
 
-	// VLog("\n\n=============================\n\n%s\n\n=============================\n", fragmentSource);
+		// VLog("\n\n=============================\n\n%s\n\n=============================\n", fragmentSource);
 
-	VuoShader_addSource(instance->shader, VuoMesh_IndividualTriangles, shadertoyVertexShader, NULL, fragmentSource);
+		VuoShader_addSource(instance->shader, VuoMesh_IndividualTriangles, shadertoyVertexShader, NULL, fragmentSource);
 
-	free(fragmentSource);
+		free(fragmentSource);
+	}
 
 	instance->mousePosition = VuoPoint2d_make(0., 0.);
 	instance->mouseClickedPostion = VuoPoint2d_make(0., 0.);
@@ -126,7 +130,7 @@ static VuoImage convertAudioToImage(VuoAudioSamples audio)
 		pixels[n++] = (unsigned int)(1.);
 	}
 
-	VuoImage audioImage = VuoImage_makeFromBuffer(pixels, GL_RGBA, len, 1, VuoImageColorDepth_8);
+	VuoImage audioImage = VuoImage_makeFromBuffer(pixels, GL_BGRA, len, 1, VuoImageColorDepth_8, ^(void *buffer){ free(buffer); });
 
 	return audioImage;
 }
@@ -149,7 +153,8 @@ void nodeInstanceEvent
 (
 		VuoInstanceData(struct nodeInstanceData *) instance,
 		VuoInputData(VuoText, {
-				"default": "void main(void)\n{\n	vec2 uv = (gl_FragCoord.xy/iResolution.xy);\n	gl_FragColor = vec4(uv.xyx, 1.);\n}"}
+				"default": "void main(void)\n{\n	vec2 uv = (gl_FragCoord.xy/iResolution.xy);\n	gl_FragColor = vec4(uv.xyx, 1.);\n}",
+				"isCodeEditor":true}
 			) fragmentShader,
 		VuoInputEvent({"eventBlocking":"none","data":"fragmentShader"}) fragmentShaderEvent,
 		VuoInputData(VuoReal) GlobalTime,
@@ -169,7 +174,7 @@ void nodeInstanceEvent
 	/**
 	 *	If the fragment shader text has changed, reload the shader.
 	 */
-	if(fragmentShaderEvent)
+	if (fragmentShader && fragmentShaderEvent)
 	{
 		if((*instance)->shader)
 		{
@@ -257,7 +262,8 @@ void nodeInstanceEvent
 	 */
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
-	VuoShader_setUniform_VuoPoint4d((*instance)->shader, "iDate", (VuoPoint4d) { tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, (tm.tm_hour * 60) + tm.tm_sec } );
+
+	VuoShader_setUniform_VuoPoint4d((*instance)->shader, "iDate", (VuoPoint4d) { tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, (tm.tm_hour * 60 * 60) + tm.tm_sec } );
 
 	*shaderImage = VuoImageRenderer_draw((*instance)->imageRenderer, (*instance)->shader, width, height, VuoImageColorDepth_8);
 }

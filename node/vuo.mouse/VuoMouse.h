@@ -2,10 +2,14 @@
  * @file
  * VuoMouse interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "VuoBoolean.h"
 #include "VuoModifierKey.h"
@@ -32,7 +36,7 @@ void VuoMouse_startListeningForDeltas(VuoMouse *mouseListener, void (*movedBy)(V
 void VuoMouse_startListeningForDrags(VuoMouse *mouseListener, void (*dragMovedTo)(VuoPoint2d),
 									 VuoMouseButton button, VuoWindowReference window, VuoModifierKey modifierKey);
 void VuoMouse_startListeningForDragsWithCallback(VuoMouse *mouseListener, void (^dragMovedTo)(VuoPoint2d),
-												 VuoMouseButton button, VuoWindowReference window, VuoModifierKey modifierKey);
+												 VuoMouseButton button, VuoWindowReference window, VuoModifierKey modifierKey, bool fireRegardlessOfPosition);
 void VuoMouse_startListeningForPresses(VuoMouse *mouseListener, void (*pressed)(VuoPoint2d),
 									   VuoMouseButton button, VuoWindowReference window, VuoModifierKey modifierKey);
 void VuoMouse_startListeningForPressesWithCallback(VuoMouse *mouseListener, void (^pressed)(VuoPoint2d),
@@ -40,12 +44,20 @@ void VuoMouse_startListeningForPressesWithCallback(VuoMouse *mouseListener, void
 void VuoMouse_startListeningForReleases(VuoMouse *mouseListener, void (*released)(VuoPoint2d),
 										VuoMouseButton button, VuoWindowReference window, VuoModifierKey modifierKey);
 void VuoMouse_startListeningForReleasesWithCallback(VuoMouse *mouseListener, void (^released)(VuoPoint2d),
-													VuoMouseButton button, VuoWindowReference window, VuoModifierKey modifierKey);
+													VuoMouseButton button, VuoWindowReference window, VuoModifierKey modifierKey, bool fireRegardlessOfPosition);
 void VuoMouse_startListeningForClicks(VuoMouse *mouseListener, void (*singleClicked)(VuoPoint2d), void (*doubleClicked)(VuoPoint2d),
 									  void (*tripleClicked)(VuoPoint2d),
 									  VuoMouseButton button, VuoWindowReference window, VuoModifierKey modifierKey);
 
 void VuoMouse_stopListening(VuoMouse *mouseListener);
 
-VuoPoint2d VuoMouse_getPosition(VuoWindowReference window);
-VuoBoolean VuoMouse_isPressed(VuoMouseButton button, VuoModifierKey modifierKey);
+void VuoMouse_getStatus(VuoPoint2d *position, VuoBoolean *isPressed,
+						VuoMouseButton button, VuoWindowReference window, VuoModifierKey modifierKey);
+
+#ifdef NSAppKitVersionNumber10_0
+VuoPoint2d VuoMouse_convertWindowToVuoCoordinates(NSPoint pointInWindow, NSWindow *window, bool *shouldFire);
+#endif
+
+#ifdef __cplusplus
+}
+#endif

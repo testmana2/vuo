@@ -2,7 +2,7 @@
  * @file
  * VuoPortClass interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -60,6 +60,8 @@ public:
 	PortType getPortType(void);
 	EventBlocking getEventBlocking(void);
 	void setEventBlocking(EventBlocking eventBlocking);
+	bool hasPortAction(void);
+	void setPortAction(bool portAction);
 	EventThrottling getDefaultEventThrottling(void);
 	void setDefaultEventThrottling(EventThrottling eventThrottling);
 
@@ -68,7 +70,8 @@ public:
 private:
 	string name; ///< The parameter's name, used as an identifier and for display.
 	enum PortType portType; ///< The port's type.
-	enum EventBlocking eventBlocking; ///< The port's event-blocking behavior. Only applies to non-trigger ports.
+	enum EventBlocking eventBlocking; ///< The port's event-blocking behavior. Only applies to input ports.
+	bool portAction; ///< Whether the port has a port action. Only applies to input ports.
 	enum EventThrottling defaultEventThrottling; ///< The port's default event-throttling behavior. Only applies to trigger ports.
 };
 

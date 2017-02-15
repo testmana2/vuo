@@ -2,7 +2,7 @@
  * @file
  * TestCompilingAndLinking interface and implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -26,8 +26,10 @@ class TestCompilingAndLinking : public TestCompositionExecution
 private:
 
 	VuoCompiler *compiler;
-	string cachedDylib;
-	string cachedIndex;
+	string cachedDylib_builtIn;
+	string cachedDylib_user;
+	string cachedIndex_builtIn;
+	string cachedIndex_user;
 
 private slots:
 
@@ -36,8 +38,10 @@ private slots:
 		compiler = initCompiler();
 
 		string cacheDir = VuoFileUtilities::getCachePath();
-		cachedDylib = cacheDir + "/libVuoResources.dylib";
-		cachedIndex = cacheDir + "/index.txt";
+		cachedDylib_builtIn = cacheDir + "/libVuoResources.dylib";
+		cachedDylib_user = cacheDir + "/libVuoResources-user.dylib";
+		cachedIndex_builtIn = cacheDir + "/index.txt";
+		cachedIndex_user = cacheDir + "/index-user.txt";
 	}
 
 	void cleanupTestCase()
@@ -56,6 +60,7 @@ private slots:
 		QTest::newRow("Trigger port carrying a 32-bit float.") << "TriggerCarryingFloat";
 		QTest::newRow("Trigger port carrying a VuoPoint2d.") << "TriggerCarryingPoint2d";
 		QTest::newRow("Trigger port carrying a VuoPoint3d.") << "TriggerCarryingPoint3d";
+		QTest::newRow("Trigger port carrying a VuoPoint4d.") << "TriggerCarryingPoint4d";
 		QTest::newRow("Trigger port carrying a VuoMidiNote.") << "TriggerCarryingMIDINote";
 		QTest::newRow("Passive output port carrying a VuoMidiNote.") << "OutputCarryingMIDINote";
 		QTest::newRow("Passive cable carrying a struct passed by value.") << "CableCarryingStructByValue";
@@ -66,6 +71,7 @@ private slots:
 		QTest::newRow("Event-only cable from a data-and-event output port to a data-and-event input port.") << "EventCableFromDataOutput";
 		QTest::newRow("Node with an input port and output port whose types are pointers to structs.") << "StructPointerPorts";
 		QTest::newRow("Make List node with 0 items.") << "AddNoTerms";
+		QTest::newRow("Published input port called 'refresh'.") << "RefreshPublishedInput";
 	}
 	void testCompilingWithoutCrashing()
 	{
@@ -194,9 +200,18 @@ private slots:
 		QTest::addColumn< QString >("compositionName");
 
 		QTest::newRow("Empty composition") << "Empty";
-		QTest::newRow("100 non-generic nodes of the same node class") << "ChainOfNonGenericNodes";
-		QTest::newRow("50 nodes of the same generic node class specialized to different types") << "ChainOfSpecializedNodes";
-		QTest::newRow("25 nodes of different node classes") << "FanOfNodes";
+		QTest::newRow("50 nodes of the same non-generic node class, in a line from 1 trigger") << "LineOfSameNodeClass";
+		QTest::newRow("50 nodes of different non-generic node classes, in a line from 1 trigger") << "LineOfDiffNodeClass";
+		QTest::newRow("50 nodes of the same generic node class specialized to the same type, in a line from 1 trigger") << "LineOfSameNodeClassSameType";
+		QTest::newRow("50 nodes of the same generic node class specialized to different types, in a line from 1 trigger") << "LineOfSameNodeClassDiffType";
+		QTest::newRow("50 nodes-with-drawers of the same generic node class specialized to different types, in a line from 1 trigger") << "LineOfDrawersOfDiffType";
+		QTest::newRow("50 nodes-with-triggers of the same non-generic node class, not connected") << "UnconnectedTriggers";
+		QTest::newRow("50 nodes of the same non-generic node class, in a diamond series from 1 trigger") << "DiamondOfSameNodeClass";
+		QTest::newRow("50 nodes of the same non-generic node class, in a line from 50 triggers") << "LineOfSameNodeClassMultiTriggers";
+		QTest::newRow("50 nodes of the same non-generic node class, each from one of 50 triggers") << "EachPairOfSameNodeClassMultiTriggers";
+		QTest::newRow("100 nodes of the same non-generic node class, in a line from 1 trigger") << "LineOfSameNodeClass100";
+		QTest::newRow("200 nodes of the same non-generic node class, in a line from 1 trigger") << "LineOfSameNodeClass200";
+		QTest::newRow("400 nodes of the same non-generic node class, in a line from 1 trigger") << "LineOfSameNodeClass400";
 	}
 	void testCompilingPerformance()
 	{
@@ -221,9 +236,18 @@ private slots:
 		QTest::addColumn< QString >("compositionName");
 
 		QTest::newRow("Empty composition") << "Empty";
-		QTest::newRow("100 non-generic nodes of the same node class") << "ChainOfNonGenericNodes";
-		QTest::newRow("50 nodes of the same generic node class specialized to different types") << "ChainOfSpecializedNodes";
-		QTest::newRow("25 nodes of different node classes") << "FanOfNodes";
+		QTest::newRow("50 nodes of the same non-generic node class, in a line from 1 trigger") << "LineOfSameNodeClass";
+		QTest::newRow("50 nodes of different non-generic node classes, in a line from 1 trigger") << "LineOfDiffNodeClass";
+		QTest::newRow("50 nodes of the same generic node class specialized to the same type, in a line from 1 trigger") << "LineOfSameNodeClassSameType";
+		QTest::newRow("50 nodes of the same generic node class specialized to different types, in a line from 1 trigger") << "LineOfSameNodeClassDiffType";
+		QTest::newRow("50 nodes-with-drawers of the same generic node class specialized to different types, in a line from 1 trigger") << "LineOfDrawersOfDiffType";
+		QTest::newRow("50 nodes-with-triggers of the same non-generic node class, not connected") << "UnconnectedTriggers";
+		QTest::newRow("50 nodes of the same non-generic node class, in a diamond series from 1 trigger") << "DiamondOfSameNodeClass";
+		QTest::newRow("50 nodes of the same non-generic node class, in a line from 50 triggers") << "LineOfSameNodeClassMultiTriggers";
+		QTest::newRow("50 nodes of the same non-generic node class, each from one of 50 triggers") << "EachPairOfSameNodeClassMultiTriggers";
+		QTest::newRow("100 nodes of the same non-generic node class, in a line from 1 trigger") << "LineOfSameNodeClass100";
+		QTest::newRow("200 nodes of the same non-generic node class, in a line from 1 trigger") << "LineOfSameNodeClass200";
+		QTest::newRow("400 nodes of the same non-generic node class, in a line from 1 trigger") << "LineOfSameNodeClass400";
 	}
 	void testCompilingAndLinkingPerformance()
 	{
@@ -239,7 +263,8 @@ private slots:
 
 		// Simulate the most common case: the cache already exists when the process starts.
 		compiler->getCachedResources();
-		compiler->hasTriedCachedResources = false;
+		compiler->hasTriedCachedResources[0] = false;
+		compiler->hasTriedCachedResources[1] = false;
 		compiler->getCachedResources();
 
 		QBENCHMARK {
@@ -262,9 +287,18 @@ private slots:
 		QTest::addColumn< QString >("compositionName");
 
 		QTest::newRow("Empty composition") << "Empty";
-		QTest::newRow("100 non-generic nodes of the same node class") << "ChainOfNonGenericNodes";
-		QTest::newRow("50 nodes of the same generic node class specialized to different types") << "ChainOfSpecializedNodes";
-		QTest::newRow("25 nodes of different node classes") << "FanOfNodes";
+		QTest::newRow("50 nodes of the same non-generic node class, in a line from 1 trigger") << "LineOfSameNodeClass";
+		QTest::newRow("50 nodes of different non-generic node classes, in a line from 1 trigger") << "LineOfDiffNodeClass";
+		QTest::newRow("50 nodes of the same generic node class specialized to the same type, in a line from 1 trigger") << "LineOfSameNodeClassSameType";
+		QTest::newRow("50 nodes of the same generic node class specialized to different types, in a line from 1 trigger") << "LineOfSameNodeClassDiffType";
+		QTest::newRow("50 nodes-with-drawers of the same generic node class specialized to different types, in a line from 1 trigger") << "LineOfDrawersOfDiffType";
+		QTest::newRow("50 nodes-with-triggers of the same non-generic node class, not connected") << "UnconnectedTriggers";
+		QTest::newRow("50 nodes of the same non-generic node class, in a diamond series from 1 trigger") << "DiamondOfSameNodeClass";
+		QTest::newRow("50 nodes of the same non-generic node class, in a line from 50 triggers") << "LineOfSameNodeClassMultiTriggers";
+		QTest::newRow("50 nodes of the same non-generic node class, each from one of 50 triggers") << "EachPairOfSameNodeClassMultiTriggers";
+		QTest::newRow("100 nodes of the same non-generic node class, in a line from 1 trigger") << "LineOfSameNodeClass100";
+		QTest::newRow("200 nodes of the same non-generic node class, in a line from 1 trigger") << "LineOfSameNodeClass200";
+		QTest::newRow("400 nodes of the same non-generic node class, in a line from 1 trigger") << "LineOfSameNodeClass400";
 	}
 	void testLiveCodingPerformance()
 	{
@@ -279,7 +313,8 @@ private slots:
 
 		// Simulate the most common case: the cache already exists when the process starts.
 		compiler->getCachedResources();
-		compiler->hasTriedCachedResources = false;
+		compiler->hasTriedCachedResources[0] = false;
+		compiler->hasTriedCachedResources[1] = false;
 		compiler->getCachedResources();
 
 		string compositionString = VuoFileUtilities::readFileToString(compositionPath);
@@ -321,66 +356,131 @@ private slots:
 			remove((*i).c_str());
 	}
 
-private:
-
-	bool doesCacheGetRecreated(VuoCompiler *compiler)
+	void testCompilingAndLinkingInSeparateProcessPerformance_data()
 	{
-		unsigned long cachedDylibLastModified = (VuoFileUtilities::fileExists(cachedDylib) ?
-													 VuoFileUtilities::getFileLastModifiedInSeconds(cachedDylib) : 0);
-		unsigned long cachedIndexLastModified = (VuoFileUtilities::fileExists(cachedIndex) ?
-													 VuoFileUtilities::getFileLastModifiedInSeconds(cachedIndex) : 0);
+		QTest::addColumn< QString >("compositionName");
 
-		compiler->hasTriedCachedResources = false;
-		delete compiler->sharedEnvironment;
-		compiler->sharedEnvironment = NULL;
+		QTest::newRow("Empty composition") << "Empty";
+		QTest::newRow("50 nodes of the same non-generic node class, in a line from 1 trigger") << "LineOfSameNodeClass";
+		QTest::newRow("50 nodes of different non-generic node classes, in a line from 1 trigger") << "LineOfDiffNodeClass";
+		QTest::newRow("50 nodes of the same generic node class specialized to the same type, in a line from 1 trigger") << "LineOfSameNodeClassSameType";
+		QTest::newRow("50 nodes of the same generic node class specialized to different types, in a line from 1 trigger") << "LineOfSameNodeClassDiffType";
+		QTest::newRow("50 nodes-with-drawers of the same generic node class specialized to different types, in a line from 1 trigger") << "LineOfDrawersOfDiffType";
+		QTest::newRow("50 nodes-with-triggers of the same non-generic node class, not connected") << "UnconnectedTriggers";
+		QTest::newRow("50 nodes of the same non-generic node class, in a diamond series from 1 trigger") << "DiamondOfSameNodeClass";
+		QTest::newRow("50 nodes of the same non-generic node class, in a line from 50 triggers") << "LineOfSameNodeClassMultiTriggers";
+		QTest::newRow("50 nodes of the same non-generic node class, each from one of 50 triggers") << "EachPairOfSameNodeClassMultiTriggers";
+		QTest::newRow("100 nodes of the same non-generic node class, in a line from 1 trigger") << "LineOfSameNodeClass100";
+		QTest::newRow("200 nodes of the same non-generic node class, in a line from 1 trigger") << "LineOfSameNodeClass200";
+		QTest::newRow("400 nodes of the same non-generic node class, in a line from 1 trigger") << "LineOfSameNodeClass400";
+	}
+	void testCompilingAndLinkingInSeparateProcessPerformance()
+	{
+		QFETCH(QString, compositionName);
+		printf("	%s\n", compositionName.toUtf8().data()); fflush(stdout);
+
+		string compositionPath = getCompositionPath(compositionName.toStdString() + ".vuo");
+
 		compiler->getCachedResources();
 
-		return VuoFileUtilities::fileExists(cachedDylib) &&
-				VuoFileUtilities::fileExists(cachedIndex) &&
-				VuoFileUtilities::getFileLastModifiedInSeconds(cachedDylib) > cachedDylibLastModified &&
-				VuoFileUtilities::getFileLastModifiedInSeconds(cachedIndex) > cachedIndexLastModified;
+		QBENCHMARK {
+			VuoRunner *runner = VuoRunner::newSeparateProcessRunnerFromCompositionFile(compositionPath, false, true);
+			QVERIFY(runner);
+			delete runner;
+		}
+	}
+
+private:
+
+	void doesCacheGetRecreated(bool &builtIn, bool &user)
+	{
+		unsigned long cachedDylibLastModified_builtIn = (VuoFileUtilities::fileExists(cachedDylib_builtIn) ?
+															 VuoFileUtilities::getFileLastModifiedInSeconds(cachedDylib_builtIn) : 0);
+		unsigned long cachedIndexLastModified_builtIn = (VuoFileUtilities::fileExists(cachedIndex_builtIn) ?
+															 VuoFileUtilities::getFileLastModifiedInSeconds(cachedIndex_builtIn) : 0);
+		unsigned long cachedDylibLastModified_user = (VuoFileUtilities::fileExists(cachedDylib_user) ?
+														  VuoFileUtilities::getFileLastModifiedInSeconds(cachedDylib_user) : 0);
+		unsigned long cachedIndexLastModified_user = (VuoFileUtilities::fileExists(cachedIndex_user) ?
+														  VuoFileUtilities::getFileLastModifiedInSeconds(cachedIndex_user) : 0);
+
+		VuoCompiler::hasTriedCachedResources[0] = false;
+		VuoCompiler::hasTriedCachedResources[1] = false;
+		delete VuoCompiler::sharedEnvironment;
+		VuoCompiler::sharedEnvironment = NULL;
+		VuoCompiler c;  // Not created with TestCompositionExecution::initCompiler() — don't want extra module folders.
+		c.getCachedResources();
+
+		builtIn = (VuoFileUtilities::fileExists(cachedDylib_builtIn) &&
+				   VuoFileUtilities::fileExists(cachedIndex_builtIn) &&
+				   VuoFileUtilities::getFileLastModifiedInSeconds(cachedDylib_builtIn) > cachedDylibLastModified_builtIn &&
+				   VuoFileUtilities::getFileLastModifiedInSeconds(cachedIndex_builtIn) > cachedIndexLastModified_builtIn);
+		user = (VuoFileUtilities::fileExists(cachedDylib_user) &&
+				   VuoFileUtilities::fileExists(cachedIndex_user) &&
+				   VuoFileUtilities::getFileLastModifiedInSeconds(cachedDylib_user) > cachedDylibLastModified_user &&
+				   VuoFileUtilities::getFileLastModifiedInSeconds(cachedIndex_user) > cachedIndexLastModified_user);
 	}
 
 private slots:
 
 	void testCreationOfCachedResources()
 	{
-		VuoCompiler compiler2;  // Not created with TestCompositionExecution::initCompiler() — don't want extra module folders.
-
 		string nodeClass = "vuo.test.doNothing.vuonode";
 		string nodeDir = QDir::current().absolutePath().toStdString() + "/node-TestCompilingAndLinking";
 		string moduleDir = VuoFileUtilities::getUserModulesPath();
 		string nodeClassInModuleDir = moduleDir + "/" + nodeClass;
 
-		remove(cachedDylib.c_str());
-		remove(cachedIndex.c_str());
+		remove(cachedDylib_builtIn.c_str());
+		remove(cachedDylib_user.c_str());
+		remove(cachedIndex_builtIn.c_str());
+		remove(cachedIndex_user.c_str());
 		remove(nodeClassInModuleDir.c_str());
 
+		bool recreated_builtIn = false;
+		bool recreated_user = false;
+
 		// Cached files do not exist.
-		QVERIFY( doesCacheGetRecreated(&compiler2) );
+		doesCacheGetRecreated(recreated_builtIn, recreated_user);
+		QVERIFY(recreated_builtIn);
+		QVERIFY(recreated_user);
 
 		// Cached files are up to date.
-		QVERIFY( ! doesCacheGetRecreated(&compiler2) );
+		doesCacheGetRecreated(recreated_builtIn, recreated_user);
+		QVERIFY(! recreated_builtIn);
+		QVERIFY(! recreated_user);
 
-		// Cached dylib does not exist.
-		remove(cachedDylib.c_str());
-		QVERIFY( doesCacheGetRecreated(&compiler2) );
+		// Cached dylib for built-in modules does not exist.
+		remove(cachedDylib_builtIn.c_str());
+		doesCacheGetRecreated(recreated_builtIn, recreated_user);
+		QVERIFY(recreated_builtIn);
+		QVERIFY(! recreated_user);
+
+		// Cached dylib for user modules does not exist.
+		remove(cachedDylib_user.c_str());
+		doesCacheGetRecreated(recreated_builtIn, recreated_user);
+		QVERIFY(! recreated_builtIn);
+		QVERIFY(recreated_user);
 
 		// Node class added to Modules folder.
 		string escapedNodeClassInNodeDir = "\"" + nodeDir + "/" + nodeClass + "\"";
 		string escapedModuleDir = "\"" + moduleDir + "\"";
 		system(("/bin/cp " + escapedNodeClassInNodeDir + " " + escapedModuleDir).c_str());
-		QVERIFY( doesCacheGetRecreated(&compiler2) );
+		doesCacheGetRecreated(recreated_builtIn, recreated_user);
+		QVERIFY(! recreated_builtIn);
+		QVERIFY(recreated_user);
 
 		// Node class updated in Modules folder.
 		sleep(2);  // Make sure getFileLastModifiedInSeconds() is larger for the node class than the cache files.
 		string escapedNodeClassInModuleDir = "\"" + nodeClassInModuleDir + "\"";
 		system(("/usr/bin/touch " + escapedNodeClassInModuleDir).c_str());
-		QVERIFY( doesCacheGetRecreated(&compiler2) );
+		doesCacheGetRecreated(recreated_builtIn, recreated_user);
+		QVERIFY(! recreated_builtIn);
+		QVERIFY(recreated_user);
 
 		// Node class deleted from Modules folder.
 		remove(nodeClassInModuleDir.c_str());
-		QVERIFY( doesCacheGetRecreated(&compiler2) );
+		doesCacheGetRecreated(recreated_builtIn, recreated_user);
+		QVERIFY(! recreated_builtIn);
+		QVERIFY(recreated_user);
 	}
 
 	void testFallbackWithoutCache()
@@ -388,7 +488,8 @@ private slots:
 		VuoCompiler compiler2;
 
 		// Simulate the compiler's having tried and failed to create the cache.
-		compiler2.hasTriedCachedResources = true;
+		compiler2.hasTriedCachedResources[0] = true;
+		compiler2.hasTriedCachedResources[1] = true;
 
 		string compositionPath = getCompositionPath("Recur.vuo");
 		string dir, file, ext;
@@ -409,11 +510,17 @@ private slots:
 		VuoCompiler compiler2;
 
 		// Delete the cache to force it to be recreated.
-		remove(cachedDylib.c_str());
-		remove(cachedIndex.c_str());
+		remove(cachedDylib_builtIn.c_str());
+		remove(cachedDylib_user.c_str());
+		remove(cachedIndex_builtIn.c_str());
+		remove(cachedIndex_user.c_str());
 
 		QBENCHMARK {
-			QVERIFY( doesCacheGetRecreated(&compiler2) );
+			bool recreated_builtIn = false;
+			bool recreated_user = false;
+			doesCacheGetRecreated(recreated_builtIn, recreated_user);
+			QVERIFY(recreated_builtIn);
+			QVERIFY(recreated_user);
 		}
 	}
 
@@ -425,7 +532,11 @@ private slots:
 		compiler2.getCachedResources();
 
 		QBENCHMARK {
-			QVERIFY( ! doesCacheGetRecreated(&compiler2) );
+			bool recreated_builtIn = false;
+			bool recreated_user = false;
+			doesCacheGetRecreated(recreated_builtIn, recreated_user);
+			QVERIFY(! recreated_builtIn);
+			QVERIFY(! recreated_user);
 		}
 	}
 };

@@ -2,7 +2,7 @@
  * @file
  * Prototypes for node class, type, and library module implementations.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -41,7 +41,7 @@
  * 					 "version" : "1.0.0",
  * 					 "dependencies" : [ "VuoWindow" ],
  * 					 "compatibleOperatingSystems": {
- * 						 "macosx" : { "min": "10.7" }
+ * 						 "macosx" : { "min": "10.8" }
  * 					 },
  * 					 "node": {
  * 						 "isInterface" : true,
@@ -53,18 +53,18 @@
  * \eg{
  * VuoModuleMetadata({
  * 					 "title" : "Add",
- *					 "keywords" : [ "sum", "plus", "total", "+", "arithmetic", "calculate" ],
- *					 "version" : "1.0.0",
- *					 "genericTypes" : {
- *						 "VuoGenericType1" : {
- *							"defaultType" : "VuoReal",
- *							"compatibleTypes" : [ "VuoInteger", "VuoReal" ]
- *						 }
- *					 },
- *					 "node": {
- *						 "exampleCompositions" : [ ]
- *					 }
- *				 });
+ * 					 "keywords" : [ "sum", "plus", "total", "+", "arithmetic", "calculate" ],
+ * 					 "version" : "1.0.0",
+ * 					 "genericTypes" : {
+ * 						 "VuoGenericType1" : {
+ * 							"defaultType" : "VuoReal",
+ * 							"compatibleTypes" : [ "VuoInteger", "VuoReal" ]
+ * 						 }
+ * 					 },
+ * 					 "node": {
+ * 						 "exampleCompositions" : [ ]
+ * 					 }
+ * 				 });
  * }
  *
  * Pass a <a href="http://www.json.org/">JSON</a> specification that contains metadata about the node class,
@@ -79,7 +79,7 @@
  *   - "compatibleOperatingSystems" — A set of operating systems on which this module can run. Unless this key is present, the module is assumed to run on all operating systems.
  *      This object contains keys for operating system names and values for the range of versions supported. Each range may specify "min", "max", or both.
  *      The operating systems and versions currently supported are:
- *      - "macosx" — "10.6", "10.7", "10.8", "10.9"
+ *      - "macosx" — "10.7", "10.8", "10.9"
  *   - "genericTypes" — Information about generic types used by this module.
  *      (This key is optional even if the module uses generic types. Currently, this key is only supported for node classes.)
  *      This object contains keys for generic type names and values for details about those types.
@@ -91,13 +91,14 @@
  *
  * For node classes, the keys in the JSON specification may optionally include "node". Its keys may optionally include:
  *   - "isInterface" — True if this node class sends data to or receives data from somewhere external to the composition (e.g., input device, file, network). False by default.
+ *   - "isDeprecated" — True if this node class should be considered deprecated. Deprecated node classes are omitted from the Vuo Editor's Node Library. False by default.
  *   - "exampleCompositions" — A list of example compositions that demonstrate this node class. The example compositions and the node class must be packaged together in a node set.
  *
  * @see DevelopingNodeClasses
  * @see DevelopingTypes
  * @see DevelopingLibraryModules
  */
-#define VuoModuleMetadata(...) const char *moduleDetails = #__VA_ARGS__
+#define VuoModuleMetadata(...) extern const char *moduleDetails; const char *moduleDetails = #__VA_ARGS__
 
 /**
  * @}
@@ -125,23 +126,60 @@ static inline void VuoStopComposition(void)
 	vuoStopComposition();
 }
 
-
-
-
-#ifndef __OBJC__
+/**
+ * Returns true if nodes should apply free trial restrictions.
+ */
+static inline bool VuoIsTrial(void)
+{
+	bool **trialRestrictionsEnabled = (bool **) dlsym(RTLD_SELF, "VuoTrialRestrictionsEnabled");
+	if (!trialRestrictionsEnabled)
+		trialRestrictionsEnabled = (bool **) dlsym(RTLD_DEFAULT, "VuoTrialRestrictionsEnabled");
+	if (!trialRestrictionsEnabled)
+	{
+//		VLog("Warning: Couldn't find symbol VuoTrialRestrictionsEnabled.");
+		return true;
+	}
+	if (!*trialRestrictionsEnabled)
+	{
+//		VLog("Warning: VuoTrialRestrictionsEnabled isn't allocated.");
+		return true;
+	}
+//	VLog("trialRestrictionsEnabled = %d",**trialRestrictionsEnabled);
+	return **trialRestrictionsEnabled;
+}
 
 /**
- * Returns the smaller of @c a and @c b.
+ * Returns true if nodes/libraries should enable Pro features.
  */
-#define	MIN(a,b) (((a)<(b))?(a):(b))
+static inline bool VuoIsPro(void)
+{
+	bool *proEnabled = (bool *) dlsym(RTLD_SELF, "VuoProEnabled");
+	if (!proEnabled)
+		proEnabled = (bool *) dlsym(RTLD_DEFAULT, "VuoProEnabled");
+	if (!proEnabled)
+	{
+//		VLog("Warning: Couldn't find symbol VuoProEnabled.");
+		return true;
+	}
+	return *proEnabled;
+}
+
+typedef void (*VuoCompositionFiniCallback)(void);	///< Callback prototype.
 
 /**
- * Returns the larger of @c a and @c b.
+ * Registers a callback to be invoked when the composition is shutting down,
+ * after all nodes have been fini'd.
+ *
+ * `VuoCompositionFiniCallback`s are not called during livecoding reloads.
  */
-#define	MAX(a,b) (((a)>(b))?(a):(b))
-
-#endif
-
-
+static inline void VuoAddCompositionFiniCallback(VuoCompositionFiniCallback fini)
+{
+	typedef void (*vuoAddCompositionFiniCallbackType)(VuoCompositionFiniCallback);
+	vuoAddCompositionFiniCallbackType vuoAddCompositionFiniCallback = (vuoAddCompositionFiniCallbackType) dlsym(RTLD_SELF, "vuoAddCompositionFiniCallback");
+	if (!vuoAddCompositionFiniCallback)
+		vuoAddCompositionFiniCallback = (vuoAddCompositionFiniCallbackType) dlsym(RTLD_DEFAULT, "vuoAddCompositionFiniCallback");
+	if (vuoAddCompositionFiniCallback)
+		vuoAddCompositionFiniCallback(fini);
+}
 
 #endif

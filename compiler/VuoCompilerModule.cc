@@ -2,17 +2,18 @@
  * @file
  * VuoCompilerModule implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdocumentation"
-#include <json/json.h>
+#include <json-c/json.h>
 #pragma clang diagnostic pop
 
 #include "VuoCompilerModule.hh"
+#include "VuoCompilerBitcodeParser.hh"
 #include "VuoCompilerNodeClass.hh"
 #include "VuoCompilerType.hh"
 #include "VuoStringUtilities.hh"
@@ -28,9 +29,13 @@ VuoCompilerModule::VuoCompilerModule(VuoModule *base, Module *module)
 	this->moduleDetails = NULL;
 	this->parser = NULL;
 	this->isPremium = false;
+	this->builtIn = false;
 
 	if (module)
+	{
+		module->setModuleIdentifier(getPseudoBase()->getModuleKey());
 		parse();
+	}
 }
 
 /**
@@ -95,7 +100,7 @@ void VuoCompilerModule::parseMetadata(void)
 
 	if (! moduleDetails)
 	{
-		VLog("Error: Couldn't parse VuoModuleMetadata as JSON: %s", moduleDetailsStr.c_str());
+		VUserLog("Error: Couldn't parse VuoModuleMetadata as JSON: %s", moduleDetailsStr.c_str());
 		return;
 	}
 
@@ -214,8 +219,6 @@ VuoCompilerTargetSet VuoCompilerModule::parseTargetSet(json_object *o, string ke
  */
 VuoCompilerTargetSet::MacVersion VuoCompilerModule::parseMacVersion(string version)
 {
-	if (version == "10.6")
-		return VuoCompilerTargetSet::MacVersion_10_6;
 	if (version == "10.7")
 		return VuoCompilerTargetSet::MacVersion_10_7;
 	if (version == "10.8")
@@ -275,7 +278,7 @@ string VuoCompilerModule::nameForGlobal(string genericGlobalVarOrFuncName)
  */
 string VuoCompilerModule::nameForGlobal(string nameBeforeCompilation, string moduleKey)
 {
-	return VuoStringUtilities::transcodeToIdentifier(moduleKey) + "__" + nameBeforeCompilation;
+	return VuoStringUtilities::prefixSymbolName(nameBeforeCompilation, moduleKey);
 }
 
 /**
@@ -350,6 +353,15 @@ set<string> VuoCompilerModule::getDependencies(void)
 }
 
 /**
+ * Returns the name that would represent this VuoCompilerModule in another VuoCompilerModule's
+ * list of dependencies.
+ */
+string VuoCompilerModule::getDependencyName(void)
+{
+	return base->getModuleKey();
+}
+
+/**
  * Returns the set of targets (operating system versions) with which this module is compatible.
  */
 VuoCompilerTargetSet VuoCompilerModule::getCompatibleTargets(void)
@@ -388,4 +400,20 @@ bool VuoCompilerModule::getPremium(void)
 void VuoCompilerModule::setPremium(bool premium)
 {
 	this->isPremium = premium;
+}
+
+/**
+ * Returns true if this module is one of the built-in modules distributed with Vuo.
+ */
+bool VuoCompilerModule::isBuiltIn(void)
+{
+	return builtIn;
+}
+
+/**
+ * Sets whether this module is one of the built-in modules distributed with Vuo.
+ */
+void VuoCompilerModule::setBuiltIn(bool builtIn)
+{
+	this->builtIn = builtIn;
 }

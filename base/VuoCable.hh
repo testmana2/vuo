@@ -2,7 +2,7 @@
  * @file
  * VuoCable interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -11,10 +11,11 @@
 #define VUOCABLE_HH
 
 #include "VuoBase.hh"
-#include "VuoNode.hh"
 
 class VuoCompilerCable;
 class VuoRendererCable;
+class VuoNode;
+class VuoPort;
 
 /**
  * Represents a connection from a node's output port to a node's input port.
@@ -30,7 +31,7 @@ public:
 	VuoPort * getToPort(void);
 	void setFrom(VuoNode *fromNode, VuoPort *fromPort);
 	void setTo(VuoNode *toNode, VuoPort *toPort);
-	bool isPublishedCable(void);
+	bool isPublished(void);
 	bool isPublishedInputCable(void);
 	bool isPublishedOutputCable(void);
 

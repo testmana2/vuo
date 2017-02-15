@@ -2,7 +2,7 @@
  * @file
  * vuo.scene.noise node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -20,7 +20,7 @@
 VuoModuleMetadata({
 					 "title" : "Add Noise to 3D Object",
 					 "keywords" : [ "perturb", "random", "pseudorandom", "natural", "displace", "filter" ],
-					 "version" : "1.0.0",
+					 "version" : "1.0.1",
 					 "node": {
 						 "exampleCompositions" : [ "AddNoiseToClay.vuo" ]
 					 },
@@ -76,7 +76,7 @@ void nodeInstanceEvent
 (
 		VuoInstanceData(struct nodeInstanceData *) instance,
 		VuoInputData(VuoSceneObject) object,
-		VuoInputData(VuoReal) time,
+		VuoInputData(VuoReal, {"default":0.0,"suggestedStep":0.1}) time,
 		VuoInputData(VuoPoint3d, {"default":{"x":0.2,"y":0.2,"z":0.2},"suggestedMin":{"x":0.0,"y":0.0,"z":0.0},"suggestedStep":{"x":0.1,"y":0.1,"z":0.1}}) amount,
 		VuoInputData(VuoReal, {"default":1.0,"suggestedMin":0.0,"suggestedMax":2.0}) scale,
 		VuoOutputData(VuoSceneObject) noisedObject

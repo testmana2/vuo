@@ -2,7 +2,7 @@
  * @file
  * VuoRendererPort interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -43,8 +43,6 @@ public:
 	QRectF getActionIndicatorRect(void) const;
 	QPainterPath shape(void) const;
 	void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
-	VuoRendererPublishedPort * getProxyPublishedSidebarPort(void) const;
-	void setProxyPublishedSidebarPort(VuoRendererPublishedPort *proxyPort);
 
 	bool getEligibleForSelection(void);
 	bool isEligibleForConnection(void);
@@ -76,6 +74,7 @@ public:
 	bool effectivelyHasConnectedDataCable(bool includePublishedCables) const;
 	string getConstantAsString(void) const;
 	string getConstantAsStringToRender(void) const;
+	string getStringForRealValue(double value) const;
 	void setConstant(string constantValue);
 	string getPortNameToRender() const;
 	string getPortNameToRenderWhenDisplayed() const;
@@ -85,11 +84,12 @@ public:
 	bool getPublishable() const;
 	vector<VuoRendererPublishedPort *> getPublishedPorts() const;
 	vector<VuoRendererPublishedPort *> getPublishedPortsConnectedByDataCarryingCables(void) const;
+	VuoNode::TintColor getPortTint() const;
 
 	VuoRendererNode * getUnderlyingParentNode(void) const;
 	VuoRendererNode * getRenderedParentNode(void) const;
 	set<VuoRendererInputAttachment *> getAllUnderlyingUpstreamInputAttachments(void) const;
-	set<VuoRendererPort *> getConnectedWirelessAntennas() const;
+	set<VuoRendererPort *> getPortsConnectedWirelessly(bool includePublishedCables) const;
 
 	VuoRendererPort * getTypecastParentPort() const;
 	void setTypecastParentPort(VuoRendererPort *typecastParentPort);
@@ -127,7 +127,6 @@ private:
 	bool isEligibleForSelection;
 	bool isAnimated;
 	VuoRendererPort *typecastParentPort;
-	VuoRendererPublishedPort *proxyPublishedSidebarPort;
 	qint64 timeLastEventFired;
 	vector<QGraphicsItemAnimation *> animations;
 
@@ -153,16 +152,17 @@ protected:
 	static QPainterPath getPortPath(qreal inset, VuoPortClass::PortType portType, bool isInputPort, bool carriesData);
 	QRectF getEventBarrierRect(void) const;
 	QPainterPath getFunctionPortGlyph(void) const;
-	QPainterPath getWirelessAntennaPath() const;
+	virtual QPainterPath getWirelessAntennaPath() const;
 	bool hasConnectedWirelessDataCable(bool includePublishedCables) const;
 	bool hasConnectedWirelessEventCable(bool includePublishedCables) const;
+	VuoNode::TintColor getWirelessAntennaTint() const;
 
 	void paintPortName(QPainter *painter, VuoRendererColors *colors);
 	void paintEventBarrier(QPainter *painter, VuoRendererColors *colors);
 	void paintActionIndicator(QPainter *painter, VuoRendererColors *colors);
 	void paintWirelessAntenna(QPainter *painter, VuoRendererColors *colors);
-	string getPointStringForCoords(QList<double>) const;
 	string getDefaultPortNameToRender();
+	string getPointStringForCoords(QList<double>) const;
 
 	VuoRendererSignaler *signaler; ///< The Qt signaler used by this port.
 };

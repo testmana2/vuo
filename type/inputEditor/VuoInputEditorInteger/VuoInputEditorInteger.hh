@@ -2,7 +2,7 @@
  * @file
  * VuoInputEditorInteger interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -50,6 +50,7 @@ class VuoInputEditorInteger : public VuoInputEditorWithLineEdit
 
 protected:
 	void setUpDialog(QDialog &dialog, json_object *originalValue, json_object *details);
+	json_object * convertFromLineEditFormat(const QString &valueAsString);
 	bool eventFilter(QObject *object, QEvent *event);
 
 private:

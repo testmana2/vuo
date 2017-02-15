@@ -2,7 +2,7 @@
  * @file
  * VuoCursor implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -119,4 +119,12 @@ char * VuoCursor_getSummary(const VuoCursor value)
 		valueAsString = "Circle";
 
 	return strdup(valueAsString);
+}
+
+/**
+ * Returns true if the cursor is anything other than `none`.
+ */
+bool VuoCursor_isPopulated(const VuoCursor value)
+{
+	return (value != VuoCursor_None);
 }

@@ -2,7 +2,7 @@
  * @file
  * VuoWindowReference implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -92,24 +92,11 @@ VuoReal VuoWindowReference_getAspectRatio(const VuoWindowReference value)
  */
 void VuoWindowReference_getContentSize(const VuoWindowReference value, VuoInteger *width, VuoInteger *height, float *backingScaleFactor)
 {
-	__block NSRect contentRect;
 	VuoWindowOpenGLInternal *window = (VuoWindowOpenGLInternal *)value;
-	dispatch_sync(dispatch_get_main_queue(), ^{
-					  contentRect = [[window glView] viewport];
-
-					  if ([window respondsToSelector:@selector(convertRectToBacking:)])
-					  {
-						  typedef double (*backingFuncType)(id receiver, SEL selector);
-						  backingFuncType backingFunc = (backingFuncType)[[window class] instanceMethodForSelector:@selector(backingScaleFactor)];
-						  *backingScaleFactor = backingFunc(window, @selector(backingScaleFactor));
-
-						  typedef NSRect (*funcType)(id receiver, SEL selector, NSRect);
-						  funcType convertRectToBacking = (funcType)[[window class] instanceMethodForSelector:@selector(convertRectToBacking:)];
-						  contentRect = convertRectToBacking(window, @selector(convertRectToBacking:), contentRect);
-					  }
-				  });
+	NSRect contentRect = [window convertRectToBacking:[window contentRectCached]];
 	*width = contentRect.size.width;
 	*height = contentRect.size.height;
+	*backingScaleFactor = [window backingScaleFactorCached];
 }
 
 /**
@@ -118,10 +105,44 @@ void VuoWindowReference_getContentSize(const VuoWindowReference value, VuoIntege
  */
 bool VuoWindowReference_isFocused(const VuoWindowReference value)
 {
-	__block bool focused;
 	NSWindow *window = (NSWindow *)value;
-	dispatch_sync(dispatch_get_main_queue(), ^{
-					  focused = [window isMainWindow];
-				  });
-	return focused;
+	return [NSApp mainWindow] == window;
+}
+
+/**
+ * Adds callbacks to be invoked when files are dragged from Finder.
+ */
+void VuoWindowReference_addDragCallbacks(const VuoWindowReference wr,
+										 void (*dragEnteredCallback)(VuoDragEvent e),
+										 void (*dragMovedToCallback)(VuoDragEvent e),
+										 void (*dragCompletedCallback)(VuoDragEvent e),
+										 void (*dragExitedCallback)(VuoDragEvent e))
+{
+	if (!wr)
+		return;
+
+	VuoWindowOpenGLInternal *window = (VuoWindowOpenGLInternal *)wr;
+	[window addDragEnteredCallback:dragEnteredCallback
+			   dragMovedToCallback:dragMovedToCallback
+			 dragCompletedCallback:dragCompletedCallback
+				dragExitedCallback:dragExitedCallback];
+}
+
+/**
+ * Removes callbacks that would have been invoked when files were dragged from Finder.
+ */
+void VuoWindowReference_removeDragCallbacks(const VuoWindowReference wr,
+											void (*dragEnteredCallback)(VuoDragEvent e),
+											void (*dragMovedToCallback)(VuoDragEvent e),
+											void (*dragCompletedCallback)(VuoDragEvent e),
+											void (*dragExitedCallback)(VuoDragEvent e))
+{
+	if (!wr)
+		return;
+
+	VuoWindowOpenGLInternal *window = (VuoWindowOpenGLInternal *)wr;
+	[window removeDragEnteredCallback:dragEnteredCallback
+				  dragMovedToCallback:dragMovedToCallback
+				dragCompletedCallback:dragCompletedCallback
+				   dragExitedCallback:dragExitedCallback];
 }

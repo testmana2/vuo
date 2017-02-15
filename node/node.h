@@ -2,7 +2,7 @@
  * @file
  * Prototypes for node class implementations.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -68,6 +68,9 @@
  *			  value has the format accepted by that port type's MyType_makeFromJson() function.
  *			- "name" (string) — Overrides the default heuristics for creating the port's displayed name in rendered compositions.
  *			  This is usually not necessary.
+ *			- "includeValues" (array of strings) — Enum types by default display all `_allowedValues()` in a menu.
+ *			  When this detail is present, only the values listed will be displayed in the menu.
+ *			  The values should be string keys — the output of `_getJson()`.
  *			.
  *		Additional keys may be recognized by the port type's input editor (see @ref DevelopingInputEditors).
  *

@@ -2,7 +2,7 @@
  * @file
  * VuoGenericType interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -30,10 +30,10 @@ public:
 		whitelistedTypes ///< Compatible only with certain types.
 	};
 
-	VuoGenericType(string typeName, set<string> compatibleSpecializedTypes);
+	VuoGenericType(string typeName, vector<string> compatibleSpecializedTypes);
 	bool isSpecializedTypeCompatible(string typeName);
 	bool isGenericTypeCompatible(VuoGenericType *otherType);
-	set<string> getCompatibleSpecializedTypes(Compatibility &compatibility);
+	vector<string> getCompatibleSpecializedTypes(Compatibility &compatibility);
 
 	static bool isGenericTypeName(string typeName);
 	static size_t findGenericTypeName(string stringToSearch, size_t startPos, string &genericTypeName);
@@ -42,7 +42,7 @@ public:
 	static void sortGenericTypeNames(vector<string> &genericTypeNames);
 
 private:
-	set<string> compatibleSpecializedTypes;
+	vector<string> compatibleSpecializedTypes;
 
 	static const string genericTypeNamePrefix;
 	static bool isPairOfGenericTypesSorted(string type1, string type2);

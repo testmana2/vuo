@@ -2,7 +2,7 @@
  * @file
  * vuo.video.receive node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -16,6 +16,7 @@ VuoModuleMetadata({
 					  "keywords" : [
 						  "quicktime", "qt",
 						  "firewire", "1394", "usb", "iSight",
+						  "iOS", "iPhone", "iPad", "Lightning",
 						  "camera", "capture", "streaming", "record"
 					  ],
 					 "version" : "1.0.1",
@@ -67,10 +68,7 @@ void nodeInstanceEvent
 	if(start)
 	{
 		if( !VuoQTCapture_isInitialized(*movie) )
-		{
 			*movie = VuoQTCapture_make(device, receivedFrame);
-			VuoRetain(*movie);
-		}
 
 		VuoQTCapture_startListening(*movie);
 	}
@@ -93,5 +91,4 @@ void nodeInstanceFini
 		VuoInstanceData(VuoQTCapture *) movie
 )
 {
-	VuoRelease( *movie );
 }

@@ -2,7 +2,7 @@
  * @file
  * vuo.midi.track.note.poly node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -14,7 +14,7 @@
 VuoModuleMetadata({
 					 "title" : "Track Notes",
 					 "keywords" : [ "pitches", "tones", "synthesizer", "music", "instrument",
-						 "multiple", "polyphonic", "chord", "range", "octave", "filter" ],
+						 "multiple", "polyphonic", "chord", "range", "octave", "filter", "follower" ],
 					 "version" : "1.0.0",
 					 "node": {
 						 "exampleCompositions" : [ "ShowPianoRoll.vuo" ],

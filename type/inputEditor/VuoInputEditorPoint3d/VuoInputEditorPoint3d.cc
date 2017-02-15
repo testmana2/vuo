@@ -2,7 +2,7 @@
  * @file
  * VuoInputEditorPoint3d implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -30,8 +30,7 @@ VuoInputEditor * VuoInputEditorPoint3dFactory::newInputEditor()
  */
 void VuoInputEditorPoint3d::setUpDialog(QDialog &dialog, json_object *originalValue, json_object *details)
 {
-	// See https://b33p.net/kosada/node/5724
-	const int decimalPrecision = 6;
+	const int decimalPrecision = DBL_MAX_10_EXP + DBL_DIG;
 
 	suggestedMinForCoord[x] = -std::numeric_limits<double>::max();
 	suggestedMaxForCoord[x] = std::numeric_limits<double>::max();
@@ -50,9 +49,15 @@ void VuoInputEditorPoint3d::setUpDialog(QDialog &dialog, json_object *originalVa
 
 	QDoubleValidator *validator = new QDoubleValidator(this);
 
+	bool tabCycleForward = true;
+
 	// Parse supported port annotations from the port's "details" JSON object:
 	if (details)
 	{
+		json_object *forwardTabTraversal = NULL;
+		if (json_object_object_get_ex(details, "forwardTabTraversal", &forwardTabTraversal))
+			tabCycleForward = json_object_get_boolean(forwardTabTraversal);
+
 		// "suggestedMin"
 		json_object *suggestedMinValue = NULL;
 		if (json_object_object_get_ex(details, "suggestedMin", &suggestedMinValue))
@@ -306,10 +311,11 @@ void VuoInputEditorPoint3d::setUpDialog(QDialog &dialog, json_object *originalVa
 		spinBoxForCoord[z]->show();
 	}
 
-	// Return focus to the topmost line edit.
+	// Return focus to the topmost line edit by default, or to the bottommost
+	// line edit if tab-cycling backwards.
 	// To be handled properly for https://b33p.net/kosada/node/6365 .
-	lineEditForCoord[x]->setFocus();
-	lineEditForCoord[x]->selectAll();
+	(tabCycleForward? lineEditForCoord[x] : lineEditForCoord[z])->setFocus();
+	(tabCycleForward? lineEditForCoord[x] : lineEditForCoord[z])->selectAll();
 }
 
 /**
@@ -496,13 +502,7 @@ double VuoInputEditorPoint3d::sliderValueToScaledLineEditValue(int sliderValue, 
 
 void VuoInputEditorPoint3d::emitValueChanged()
 {
-	VuoPoint3d currentPointValue;
-	currentPointValue.x = VuoReal_makeFromString(lineEditForCoord[x]->text().toUtf8().constData());
-	currentPointValue.y = VuoReal_makeFromString(lineEditForCoord[y]->text().toUtf8().constData());
-	currentPointValue.z = VuoReal_makeFromString(lineEditForCoord[z]->text().toUtf8().constData());
-	json_object *valueAsJson = VuoPoint3d_getJson(currentPointValue);
-	emit valueChanged(valueAsJson);
-	json_object_put(valueAsJson);
+	emit valueChanged(getAcceptedValue());
 }
 
 /**

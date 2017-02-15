@@ -2,7 +2,7 @@
  * @file
  * TestCompositions interface and implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -22,6 +22,7 @@ private:
 	VuoRunner *runner;  ///< The runner created and used by this TestCompositionsRunnerDelegate.
 	list<PortConfiguration *> portConfigurations;  ///< The sequence of PortConfiguration objects to apply to the running composition.
 	dispatch_semaphore_t portConfigurationsSemaphore;
+	bool isStopping;
 
 	/**
 	 * Applies each PortConfiguration in the list until it has applied one with a
@@ -54,13 +55,14 @@ public:
 		runner = NULL;
 		this->portConfigurations = portConfigurations;
 		portConfigurationsSemaphore = dispatch_semaphore_create(1);
+		isStopping = false;
 
 		string compiledCompositionPath = VuoFileUtilities::makeTmpFile("VuoRunnerComposition", "bc");
 		string linkedCompositionPath = VuoFileUtilities::makeTmpFile("VuoRunnerComposition-linked", "");
 		compiler->compileCompositionString(composition, compiledCompositionPath);
 		compiler->linkCompositionToCreateExecutable(compiledCompositionPath, linkedCompositionPath, VuoCompiler::Optimization_FastBuild);
 		remove(compiledCompositionPath.c_str());
-		runner = VuoRunner::newSeparateProcessRunnerFromExecutable(linkedCompositionPath, compositionDir, true);
+		runner = VuoRunner::newSeparateProcessRunnerFromExecutable(linkedCompositionPath, compositionDir, false, true);
 
 		runner->setDelegate(this);
 
@@ -78,7 +80,7 @@ public:
 	 */
 	void receivedTelemetryPublishedOutputPortUpdated(VuoRunner::Port *port, bool sentData, string dataSummary)
 	{
-		if (! sentData)
+		if (! sentData || isStopping)
 			return;
 
 		dispatch_semaphore_wait(portConfigurationsSemaphore, DISPATCH_TIME_FOREVER);
@@ -94,6 +96,8 @@ public:
 			dispatch_semaphore_signal(portConfigurationsSemaphore);
 			if (empty)
 			{
+				isStopping = true;
+
 				// runner->stop() has to be called asynchronously because it waits for this function to return.
 				dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
 								   runner->stop();

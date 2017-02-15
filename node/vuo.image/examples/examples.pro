@@ -10,6 +10,8 @@ EXAMPLE_SOURCES += \
 	EnhanceBlue.vuo \
 	EnlargeMovie.vuo \
 	FlipMovie.vuo \
+	FlyAtWarpSpeed.vuo \
+	GenerateCheckerboardImage.vuo \
 	MaskMovieByBrightness.vuo \
 	MaskMovieWithStar.vuo \
 	MirrorMovie.vuo \
@@ -17,11 +19,17 @@ EXAMPLE_SOURCES += \
 	MoveLinearGradient.vuo \
 	MoveRadialGradient.vuo \
 	OffsetColors.vuo \
+   PosterizeMovie.vuo \
 	RecolorMovie.vuo \
 	RenderTextImage.vuo \
+	RippleImageGradients.vuo \
 	RotateMovie.vuo \
 	ScanBarcodes.vuo \
 	SeparateRedGreenBlue.vuo \
+	ShowColorFromImage.vuo \
+	ShowFrostNoise.vuo \
+	ShowNoiseImage.vuo \
+	ShowRandomImage.vuo \
 	SimulateFilmProjector.vuo \
 	TileMovie.vuo \
 	VignetteMovie.vuo \

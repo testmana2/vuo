@@ -48,7 +48,7 @@ QUIET                  = YES
 # configuration options related to the input files
 #---------------------------------------------------------------------------
 
-INPUT                  = doxygen
+INPUT                  = api
 INPUT                 += DoxygenStructure.h
 INPUT                 += ../base
 INPUT                 += ../compiler
@@ -60,11 +60,15 @@ INPUT                 += ../renderer
 INPUT                 += ../runtime
 INPUT                 += ../type
 FILE_PATTERNS          = *.c* *.h* *.m* *.md
+EXTENSION_MAPPING     += mm=C++
 EXCLUDE_PATTERNS      += moc_*.cc
 EXCLUDE_PATTERNS      += moc_*.cpp
+EXCLUDE_PATTERNS      += */library/VuoUrlParser.*
 EXCLUDE_PATTERNS      += */node/vuo.*/vuo.*.c*
 EXCLUDE_PATTERNS      += */node/vuo.*/vuo.*.vuonode+
+EXCLUDE_PATTERNS      += */node/vuo.*/descriptions/*
 EXCLUDE_PATTERNS      += */node/vuo.*/examples/*
+EXCLUDE_PATTERNS      += */node/vuo.audio/VuoBeatDetektor.*
 EXCLUDE_PATTERNS      += */node/vuo.leap/Leap/*.h
 EXCLUDE_PATTERNS      += */node/vuo.syphon/Syphon/Syphon.framework/Versions/A/Headers/*.h
 EXCLUDE_PATTERNS      += */node-Test*/*
@@ -81,6 +85,7 @@ EXCLUDE_PATTERNS      += */VuoEditorApp/*
 EXCLUDE_PATTERNS      += */editor/*
 EXCLUDE_PATTERNS      += */licensetools/*
 EXCLUDE_PATTERNS      += */node/*/premium/*
+EXCLUDE_PATTERNS      += */base/premium/*
 EXCLUDE_PATTERNS      += */base/TestVuoRunner/graph*.c
 EXCLUDE_PATTERNS      += */base/VuoCompositionStub.c
 EXCLUDE_PATTERNS      += */base/miniz.*

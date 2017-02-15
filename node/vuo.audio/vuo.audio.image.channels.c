@@ -2,7 +2,7 @@
  * @file
  * vuo.audio.image.channels node implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -46,7 +46,5 @@ void nodeEvent
 			pixels[row*columns + column] = .5 + rowSamples.samples[column]*.5;
 	}
 
-	*image = VuoImage_makeFromBuffer(pixels, GL_LUMINANCE, columns, rows, VuoImageColorDepth_16);
-
-	free(pixels);
+	*image = VuoImage_makeFromBuffer(pixels, GL_LUMINANCE, columns, rows, VuoImageColorDepth_16, ^(void *buffer){ free(buffer); });
 }

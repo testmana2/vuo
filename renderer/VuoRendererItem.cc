@@ -2,7 +2,7 @@
  * @file
  * VuoRendererItem implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -11,6 +11,7 @@
 #include "VuoRendererComposition.hh"
 
 bool VuoRendererItem::drawBoundingRects = false;
+bool VuoRendererItem::snapToGrid = false;
 
 /**
  * Specifies whether bounding rects will be shown the next time the QGraphicsScene is rendered.
@@ -18,6 +19,23 @@ bool VuoRendererItem::drawBoundingRects = false;
 void VuoRendererItem::setDrawBoundingRects(bool drawBoundingRects)
 {
 	VuoRendererItem::drawBoundingRects = drawBoundingRects;
+}
+
+/**
+ * Specifies whether graphics items should be snapped to a grid.
+ */
+void VuoRendererItem::setSnapToGrid(bool snap)
+{
+	VuoRendererItem::snapToGrid = snap;
+}
+
+/**
+ * Retrieves the boolean indicating whether graphics items should be
+ * snapped to a grid.
+ */
+bool VuoRendererItem::getSnapToGrid()
+{
+	return VuoRendererItem::snapToGrid;
 }
 
 /**

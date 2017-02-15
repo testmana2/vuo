@@ -2,7 +2,7 @@
  * @file
  * vuo.boolean C type definition.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
@@ -43,6 +43,14 @@ char * VuoBoolean_getString(const VuoBoolean value);
 void VuoBoolean_retain(VuoBoolean value);
 void VuoBoolean_release(VuoBoolean value);
 /// @}
+
+/**
+ * Returns true if the two values are equal.
+ */
+static inline bool VuoBoolean_areEqual(const VuoBoolean value1, const VuoBoolean value2)
+{
+	return value1 == value2;
+}
 
 /**
  * @}

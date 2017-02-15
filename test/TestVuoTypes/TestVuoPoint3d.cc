@@ -2,7 +2,7 @@
  * @file
  * TestVuoPoint3d implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -26,28 +26,27 @@ class TestVuoPoint3d : public QObject
 	Q_OBJECT
 
 private slots:
-	void initTestCase()
-	{
-		VuoHeap_init();
-	}
 
 	void testStringConversion_data()
 	{
 		QTest::addColumn<QString>("initializer");
 		QTest::addColumn<VuoPoint3d>("value");
+		QTest::addColumn<bool>("testStringFromValue");
 
 		{
 			VuoPoint3d p;
-			p.x = -0.999;
-			p.y = 0.42;
-			p.z = 0.22;
-			QTest::newRow("different values") << "{\"x\":-0.999000,\"y\":0.420000,\"z\":0.220000}" << p;
+			p.x = -0.5;
+			p.y = 0.5;
+			p.z = 1;
+			QTest::newRow("different values") << "{\"x\":-0.5,\"y\":0.5,\"z\":1}" << p << true;
+			QTest::newRow("different values text") << QUOTE("-0.5, 0.5,1") << p << false;
 		}
 	}
 	void testStringConversion()
 	{
 		QFETCH(QString, initializer);
 		QFETCH(VuoPoint3d, value);
+		QFETCH(bool, testStringFromValue);
 
 		VuoPoint3d p = VuoPoint3d_makeFromString(initializer.toUtf8().constData());
 
@@ -55,7 +54,8 @@ private slots:
 		QCOMPARE(p.y,value.y);
 		QCOMPARE(p.z,value.z);
 
-		QCOMPARE(VuoPoint3d_getString(p), initializer.toUtf8().constData());
+		if (testStringFromValue)
+			QCOMPARE(VuoPoint3d_getString(p), initializer.toUtf8().constData());
 	}
 
 	void testMakeNonzero_data()

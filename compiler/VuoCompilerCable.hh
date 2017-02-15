@@ -2,7 +2,7 @@
  * @file
  * VuoCompilerCable interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -12,8 +12,9 @@
 
 #include "VuoBaseDetail.hh"
 #include "VuoCable.hh"
-#include "VuoCompilerNode.hh"
-#include "VuoCompilerNodeArgument.hh"
+
+class VuoCompilerNode;
+class VuoCompilerPort;
 
 /**
  * Represents a connection from a node's output port to a node's input port.
@@ -28,7 +29,7 @@ public:
 	bool getHidden(void);
 	string getGraphvizDeclaration(void);
 	bool carriesData(void);
-	void generateTransmission(Module *module, BasicBlock *block, Value *outputDataValue, bool shouldTransmitEvent=true);
+	void generateTransmission(Module *module, BasicBlock *block, Value *toNodeContextValue, Value *toPortContextValue, Value *outputDataValue, bool shouldTransmitEvent=true);
 
 private:
 	bool isAlwaysEventOnly;

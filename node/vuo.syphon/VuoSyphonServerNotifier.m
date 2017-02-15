@@ -2,12 +2,12 @@
  * @file
  * VuoSyphonServerNotifier implementation.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This code may be modified and distributed under the terms of the MIT License.
  * For more information, see http://vuo.org/license.
  */
 
-#import "VuoNSRunLoop.h"
+#import "VuoWindow.h"
 #import "VuoSyphon.h"
 #import "VuoSyphonServerNotifier.h"
 
@@ -20,7 +20,7 @@
 VuoModuleMetadata({
 					 "title" : "VuoSyphonServerNotifier",
 					 "dependencies" : [
-						"VuoNSRunLoop",
+						"VuoWindow",
 						"VuoSyphon",
 						"Syphon.framework",
 						"objc",
@@ -130,7 +130,7 @@ VuoModuleMetadata({
  */
 - (void)start
 {
-	VuoNSRunLoop_use();
+	VuoApp_init();
 
 	[[NSNotificationCenter defaultCenter] addObserver:self
 		selector:@selector(syphonServerAnnounced:)
@@ -156,8 +156,6 @@ VuoModuleMetadata({
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:SyphonServerAnnounceNotification object:nil];
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:SyphonServerUpdateNotification object:nil];
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:SyphonServerRetireNotification object:nil];
-
-	VuoNSRunLoop_disuse();
 }
 
 /**

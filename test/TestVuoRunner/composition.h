@@ -2,7 +2,7 @@
  * @file
  * composition interface.
  *
- * @copyright Copyright © 2012–2014 Kosada Incorporated.
+ * @copyright Copyright © 2012–2016 Kosada Incorporated.
  * This interface description may be modified and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2 or later.
  * For more information, see http://vuo.org/license.
  */
@@ -13,44 +13,40 @@ extern bool isStopped;
 
 //@{
 /**
+ * Normally defined in VuoRuntimeHelper. Defined here to prevent link errors.
+ */
+bool isPaused = false;
+char *compositionDiff = NULL;
+//@}
+
+//@{
+/**
  * Normally defined in the composition's generated code. Defined here to prevent link errors.
  */
 int VuoRelease(void *heapPointer)
 {
 	return 0;
 }
-void setup(void)
+void vuoSetup(void)
 {
 }
-void cleanup(void)
+void vuoCleanup(void)
 {
 }
-void nodeInstanceInit(void)
+void vuoInstanceInit(void)
 {
 }
-void nodeInstanceTriggerStart(void)
+void vuoInstanceTriggerStart(void)
 {
 }
-void nodeInstanceTriggerStop(void)
+void vuoInstanceTriggerStop(void)
 {
 }
-char * getInputPortValue(char *portIdentifier)
-{
-	return NULL;
-}
-char * getOutputPortValue(char *portIdentifier)
+char * vuoGetPortValue(char *portIdentifier, int serializationType)
 {
 	return NULL;
 }
-char * getInputPortSummary(char *portIdentifier)
-{
-	return NULL;
-}
-char * getOutputPortSummary(char *portIdentifier)
-{
-	return NULL;
-}
-void setInputPortValue(char *portIdentifier, char *valueAsString, int shouldUpdateCallbacks)
+void vuoSetInputPortValue(char *portIdentifier, char *valueAsString)
 {
 }
 void fireTriggerPortEvent(char *portIdentifier)
@@ -118,5 +114,5 @@ char * getPublishedOutputPortValue(char *portIdentifier, int shouldUseInterproce
 {
 	return NULL;
 }
-int isPaused = 0;
+
 //@}
